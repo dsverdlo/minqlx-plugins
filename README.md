@@ -28,3 +28,11 @@ The complete process of thoughts can be found in the 'handicap-thread' on the Bu
 This plugin is designed to be used with Mino's balance plugin, but adds some more features, like elo-limits for connecting players, using the elo commands by name, and applying an action to the last person on uneven teams (slay, spec or ignore).
 Furthermore this plugin creates a text file in which exceptions can be placed for the elo restrictions, and adds a little bump to the elo restriction for regular players.
 
+**IMPORTANT: to use the mybalance plugin, please comment out, or delete the following lines from the original balance.py:***
+```python
+  self.add_command(("setrating", "setelo"), self.cmd_setrating, 3, usage="<id> <rating>")
+  self.add_command(("getrating", "getelo", "elo"), self.cmd_getrating, usage="<id> [gametype]")
+  self.add_command(("remrating", "remelo"), self.cmd_remrating, 3, usage="<id>")
+```
+
+
