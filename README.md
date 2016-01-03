@@ -22,7 +22,7 @@ Displays a message during round countdown if teams are uneven, and forces the pe
 - **anti-rape**
 This plugin tries to detect overpowered players (for CA servers that like to maintain a certain range of skill), based on their score/second values.
 If their score/second values are above a certain threshold (in regards to the server score/second average), an appropriate handicap will be assigned to them.
-The complete process of thoughts can be found in the 'handicap-thread' on the Bus Station forum.
+The complete process of thoughts can be found in the 'handicap-thread' on the Bus Station forum. **Disclaimer:** The term 'rape' in this context is only used to describe an overpowered online player making the game unfair for others below his skill level. It is not meant in any way to offend or refer to the horrible crime that is also known under this name.
 
 - **mybalance**
 This plugin is designed to be used with Mino's balance plugin, but adds some more features, like elo-limits for connecting players, using the elo commands by name, and applying an action to the last person on uneven teams (slay, spec or ignore).
