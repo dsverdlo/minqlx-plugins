@@ -19,7 +19,7 @@ import time
 import datetime
 import threading
 
-VERSION = "v0.29"
+VERSION = "v0.30"
 
 
 # From which percentage we classify a rape.
@@ -42,7 +42,7 @@ HC_LOWEST = 50
 # This allows us to multiply the original handicap according to round differences
 # E.g. if the round difference is 5 --> multiply the handicap (%)  with 0.8 to make it stronger
 USE_HANDICAP_ADJUSTMENTS = True
-HANDICAP_ADJUSTMENTS = {2:0.95, 3:0.9, 4:0.85, 5:0.8, 6:0.75, 7:0.7}
+HANDICAP_ADJUSTMENTS = {2:0.95, 3:0.9, 4:0.85, 5:0.8, 6:0.75}
 DEFAULT_HANDICAP_ADJUSTMENT = 0.7
 
 # The amount of rounds and people needed before we start calculating.
@@ -179,7 +179,7 @@ class anti_rape(minqlx.Plugin):
             if set_hc.startswith(HC_TAG):
                 self.handicaps[player.steam_id] = set_hc.strip(SHC_TAG)
                 if not (SHC_TAG in set_hc):
-                    minqlx.CHAT_CHANNEL.reply("^6{}^7's handicap has been set to: ^3{}^7ï¼….".format(player.name, self.handicaps[player.steam_id]))
+                    minqlx.CHAT_CHANNEL.reply("^6{}^7's handicap has been set to: ^3{}^7％.".format(player.name, self.handicaps[player.steam_id]))
                 return d
 
         # At this stage, the request was not started by the server, but by a player.
@@ -240,6 +240,7 @@ class anti_rape(minqlx.Plugin):
                 realdamage = curr_dmg/100 + diff / int(_p.cvars.get('handicap', 100))
                 self.realscores[_p.steam_id] = int(round(realdamage)) + _p.stats.kills
 
+                minqlx.CONSOLE_COMMAND("echo DBG: {} score: {} realscore: {}".format(_p.name, _p.stats.score, self.realscores[_p.steam_id]))
 
         # If this was the last round, nothing to do
         if self.game.roundlimit in [self.game.blue_score, self.game.red_score]:
@@ -281,7 +282,7 @@ class anti_rape(minqlx.Plugin):
                 if rapist and (gap >= RAPE_MIDER_GAP):
                     hc = self.help_get_hc_suggestion(gap)
                     if hc: self.set_silent_handicap(p, hc)
-                    if hc: self.delay(["","^6{}^7 score index: ^1{}^7ï¼… above average - Handicap set to: ^3{}^7ï¼…".format(p.name, gap, hc)], 0.3)
+                    if hc: self.delay(["","^6{}^7 score index: ^1{}^7％ above average - Handicap set to: ^3{}^7％".format(p.name, gap, hc)], 0.3)
                     continue
                 elif rapist and (gap >= RAPE_LOWER_GAP): # if lower_gap <= gap <= mid_gap --> set to MID GAP hc
                     hc = self.help_get_hc_suggestion(RAPE_MIDER_GAP)
@@ -296,11 +297,11 @@ class anti_rape(minqlx.Plugin):
         channel.reply("^7Available anti_rape commands: ^2{}^7.".format("^7, ^2".join(cmds)))
 
     def cmd_info(self, player, msg, channel):
-        channel.reply("^7Players with more than ^3{}^7ï¼… score/min than server average will be handicapped.".format(RAPE_UPPER_GAP))
+        channel.reply("^7Players with more than ^3{}^7％ score/min than server average will be handicapped.".format(RAPE_UPPER_GAP))
         return minqlx.RET_STOP_ALL
 
     def cmd_info_mid(self, player, msg, channel):
-        channel.reply("^7Rapists with a score/min gap in ^3{}^7ï¼…-^3{}^7ï¼… will receive a little handicap.".format(RAPE_LOWER_GAP, RAPE_MIDER_GAP))
+        channel.reply("^7Rapists with a score/min gap in ^3{}^7％-^3{}^7％ will receive a little handicap.".format(RAPE_LOWER_GAP, RAPE_MIDER_GAP))
         return minqlx.RET_STOP_ALL
 
     # Little debug command, to check the rape scores during a game. Rape scores <= 0% are not shown.
@@ -330,13 +331,13 @@ class anti_rape(minqlx.Plugin):
         for name in sorted(reds, key=lambda i: reds[i], reverse=True): # sort small -> big
             gap = reds[name]
             if gap <= 0: continue
-            rreds.append("{}:^3{}ï¼…^7".format(name, gap)) # append at the end
+            rreds.append("{}:^3{}％^7".format(name, gap)) # append at the end
 
         bblues = []
         for name in sorted(blues, key=lambda i: blues[i], reverse=True):
             gap = blues[name]
             if gap <= 0: continue
-            bblues.append("{}:^3{}ï¼…^7".format(name, gap))
+            bblues.append("{}:^3{}％^7".format(name, gap))
 
         messages = ["^7Bus Station current score/min values compared to server average:",
             "^1Red^7: {}".format("^1,^7".join(rreds)),
@@ -364,7 +365,7 @@ class anti_rape(minqlx.Plugin):
         if (not self.game) or (self.game.state != "in_progress"):
             message = "^7No game in progress..."
         else:
-            message = "^7Rapers: {}".format(",".join(['%s(^3%sï¼…^7)' % (id_to_name(key), value) for (key, value) in self.handicaps.items()]))
+            message = "^7Rapers: {}".format(",".join(['%s(^3%s％^7)' % (id_to_name(key), value) for (key, value) in self.handicaps.items()]))
 
         if len(msg) == 2 and msg[1] == "silent":
             player.tell("^6Psst: " + message)
@@ -435,7 +436,7 @@ class anti_rape(minqlx.Plugin):
                 target_player.update()
                 hc = target_player.cvars["handicap"]
                 if int(hc) < 100:
-                    m = "^7Player ^6{} ^7is currently playing with handicap ^3{}^7ï¼…".format(target_player.name, hc)
+                    m = "^7Player ^6{} ^7is currently playing with handicap ^3{}^7％".format(target_player.name, hc)
                     if silent:
                         player.tell("^6Psst: "+m)
                         return minqlx.RET_STOP_ALL
