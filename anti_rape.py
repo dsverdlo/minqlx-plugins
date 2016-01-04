@@ -19,7 +19,7 @@ import time
 import datetime
 import threading
 
-VERSION = "v0.30"
+VERSION = "v0.31"
 
 
 # From which percentage we classify a rape.
@@ -240,7 +240,7 @@ class anti_rape(minqlx.Plugin):
                 realdamage = curr_dmg/100 + diff / int(_p.cvars.get('handicap', 100))
                 self.realscores[_p.steam_id] = int(round(realdamage)) + _p.stats.kills
 
-                minqlx.CONSOLE_COMMAND("echo DBG: {} score: {} realscore: {}".format(_p.name, _p.stats.score, self.realscores[_p.steam_id]))
+                minqlx.console_command("echo DBG: {} score: {} realscore: {}".format(_p.name, _p.stats.score, self.realscores[_p.steam_id]))
 
         # If this was the last round, nothing to do
         if self.game.roundlimit in [self.game.blue_score, self.game.red_score]:
