@@ -34,7 +34,7 @@ class autospec(minqlx.Plugin):
             lowest_player = bigger_team[0]
             for p in bigger_team:
                 if p.stats.score < lowest_player.stats.score:
-                    lowest_players = p
+                    lowest_player = p
             # Return player with lowest score
             return lowest_player
 
