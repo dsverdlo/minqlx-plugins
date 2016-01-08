@@ -5,7 +5,7 @@
 
 import minqlx
 
-VERSION = "v0.3"
+VERSION = "v0.4"
 
 class autospec(minqlx.Plugin):
     def __init__(self):
@@ -15,7 +15,8 @@ class autospec(minqlx.Plugin):
         self.add_hook("round_countdown", self.handle_round_count)
 
     def handle_round_count(self, round_number):
-        if (len(teams["red"] + teams["blue"]) % 2):
+        teams = self.teams()
+        if len(teams["red"] + teams["blue"]) % 2:
             return
         self.msg("Uneven teams detected!")
         
