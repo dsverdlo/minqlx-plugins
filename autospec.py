@@ -5,14 +5,18 @@
 
 import minqlx
 
-VERSION = "v0.1"
+VERSION = "v0.2"
 
 class autospec(minqlx.Plugin):
     def __init__(self):
         super().__init__()
         self.add_hook("round_start", self.handle_round_start)
         self.add_command("v_autospec", self.cmd_version)
+        self.add_hook("round_countdown", self.handle_round_count)
 
+    def handle_round_count(self, round_number):
+        self.msg("Uneven teams detected!")
+        
     def handle_round_start(self, round_number):
         def is_even(n):
             return n % 2 == 0
@@ -25,9 +29,9 @@ class autospec(minqlx.Plugin):
                 bigger_team = teams["red"]
 
             # Get the last person in that team
-            lowest_player = None
+            lowest_player = bigger_team[0]
             for p in bigger_team:
-                if (not lowest_player) or (p.stats.score < lowest_player.stats.score):
+                if p.stats.score < lowest_player.stats.score:
                     lowest_players = p
             # Return player with lowest score
             return lowest_player
@@ -40,7 +44,7 @@ class autospec(minqlx.Plugin):
             return minqlx.RET_STOP_EVENT
 
         # Get last person
-        lowest_player = get_last()
+        lowest_player = get_last(teams)
 
         # Perform action if it hasnt been prevented for reasons
         lowest_player.put("spectator")
@@ -50,4 +54,3 @@ class autospec(minqlx.Plugin):
     def cmd_version(self, player, msg, channel):
         plugin = self.__class__.__name__
         channel.reply("^7Currently using ^3iou^7one^4girl^7's ^6{}^7 plugin version ^6{}^7.".format(plugin, VERSION))
-
