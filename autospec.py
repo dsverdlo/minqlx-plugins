@@ -5,7 +5,7 @@
 
 import minqlx
 
-VERSION = "v0.5"
+VERSION = "v0.6"
 
 class autospec(minqlx.Plugin):
     def __init__(self):
