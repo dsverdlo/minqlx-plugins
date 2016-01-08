@@ -16,7 +16,7 @@ class autospec(minqlx.Plugin):
 
     def handle_round_count(self, round_number):
         teams = self.teams()
-        if len(teams["red"] + teams["blue"]) % 2:
+        if (len(teams["red"] + teams["blue"]) % 2) == 0:
             return
         
         lowest_player = self.help_get_last(teams)
