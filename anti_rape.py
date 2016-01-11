@@ -18,8 +18,9 @@ import minqlx
 import time
 import datetime
 import threading
+from math import floor
 
-VERSION = "v0.31"
+VERSION = "v0.42"
 
 
 # From which percentage we classify a rape.
@@ -27,26 +28,26 @@ VERSION = "v0.31"
 # Rapers will receive to get a handicap if they are not in a losing team,
 # or is their gap is below the lower rape gap.
 # For more information about these gaps please visit station.boards.net
-RAPE_LOWER_GAP = 10 # default 20
-RAPE_MIDER_GAP = 10 # default 30
-RAPE_UPPER_GAP = 30 # default 60
+RAPE_MIDER_GAP = 20 # default 30
+RAPE_UPPER_GAP = 20 # default 60
 
 # We want the first rounds to have a higher treshhold to mark a player
 # Adjust this dictionary to multiply the UPPER_GAP by an amount for a given round
-# E.g. in round 3 multiply UPPER_GAP * 1.4
-RAPE_UPPER_GAP_ADJUSTMENTS = {3:3, 4:2.6, 5:2.2, 6:1.6, 7:1.4, 8:1.2} # remove items in {brackets} to disable service
+# E.g. in (early) round 3 we can multiply UPPER_GAP * 4
+# Note: this dict starts from round 2 because that's what we define later as the ROUNDS_NEEDED
+RAPE_UPPER_GAP_ADJUSTMENTS = {2:8, 3:4, 4:3, 5:2} # remove items in {brackets} to disable service
 
 # The lowest possible handicap that will be forced
 HC_LOWEST = 50
 
 # This allows us to multiply the original handicap according to round differences
-# E.g. if the round difference is 5 --> multiply the handicap (%)  with 0.8 to make it stronger
+# E.g. if the round difference is 3 --> multiply the handicap (%)  with 0.8 to make it stronger
 USE_HANDICAP_ADJUSTMENTS = True
-HANDICAP_ADJUSTMENTS = {2:0.95, 3:0.9, 4:0.85, 5:0.8, 6:0.75}
+HANDICAP_ADJUSTMENTS = {0:1, 1:1, 2:0.9, 3:0.8}
 DEFAULT_HANDICAP_ADJUSTMENT = 0.7
 
 # The amount of rounds and people needed before we start calculating.
-ROUNDS_NEEDED = 3 # default 3
+ROUNDS_NEEDED = 2 # default 3
 PEOPLE_NEEDED = 4 # default 4
 
 
@@ -64,6 +65,8 @@ class anti_rape(minqlx.Plugin):
 
         # Some dictionaries (self explanatory) keys: steam_id, values: value
         self.handicaps = {}
+        self.help_remove_handicaps()
+
         # Store a counter of the amount of rounds played per player
         self.rounds_played = {}
 
@@ -73,13 +76,18 @@ class anti_rape(minqlx.Plugin):
 
         # Real scores for handicapped people steam_id:realscore
         self.realscores = {}
+        self.realdamage = {}
+
+        # Track when we are in round countdown (to compensate self-kills)
+        self.round_countdown = True
 
         self.add_command("hc", self.cmd_get_hc, usage="[<id>|<name>] [silent]")
         self.add_command("sethc", self.cmd_set_hc, 2, usage="[<id>|<name>] [<1-100>]")
+        self.add_command(("remhcs", "clearhcs", "delhcs"), self.cmd_rem_handicaps, 2)
+        self.add_command(("viewhcs", "listhcs", "handicaps"), self.cmd_list_handicaps, usage="[silent]")
         self.add_command(("hc_info", "hcinfo"), self.cmd_info)
-        self.add_command(("hc_info_mid", "hcinfomid"), self.cmd_info_mid)
-        self.add_command(("hc_gaps", "gaps"), self.cmd_get_gaps)
-        self.add_command(("rapers", "getrapers"), self.cmd_get_rapers, 2)
+        self.add_command(("hc_gaps", "gaps"), self.cmd_get_gaps, usage="[silent]")
+        self.add_command(("rapers", "getrapers"), self.cmd_get_rapers, 2, usage="[silent]")
         self.add_command(("raper", "setraper", "mark"), self.cmd_set_raper, 2, usage="<id>|<name>")
         self.add_command("unmark", self.cmd_unsert_raper, 2, usage="<id>|<name>")
         self.add_command(("hc_cmds", "hccmds"), self.cmd_hc_commands)
@@ -87,8 +95,10 @@ class anti_rape(minqlx.Plugin):
         self.add_hook("game_countdown",self.handle_game_countdown)
         self.add_hook("player_loaded", self.handle_player_loaded)
         self.add_hook("team_switch", self.handle_team_switch)
+        self.add_hook("round_start", self.handle_round_start)
         self.add_hook("round_end", self.handle_round_end)
         self.add_hook("userinfo", self.handle_user_info)
+        self.add_hook("death", self.handle_death)
 
 
     def cmd_version(self, player, msg, channel):
@@ -97,10 +107,8 @@ class anti_rape(minqlx.Plugin):
 
 
     def handle_game_countdown(self):
-        # Reset al handicaps and suggestions
-        for _p in self.players():
-            self.set_silent_handicap(_p, 100)
-            del self.handicaps[_p.steam_id]
+        # Remove all the handicaps
+        self.help_remove_handicaps()
 
         # Clear all marks
         self.handicaps = {}
@@ -110,6 +118,10 @@ class anti_rape(minqlx.Plugin):
 
         # Self explanatory
         self.realscores = {}
+        self.realdamage = {}
+
+        # Self explanatory
+        self.round_countdown = True
 
         # Set the round count at 0 for each playing player
         teams = self.teams()
@@ -125,6 +137,7 @@ class anti_rape(minqlx.Plugin):
             self.rounds_played[player.steam_id] = 0
             self.scores_snapshot[player.steam_id] = [new, 0]
             self.realscores[player.steam_id] = 0
+            self.realdamage[player.steam_id] = 0
 
         # If a player specs during the match, remove his counters
         if new in ['spec', 'free']:
@@ -134,13 +147,9 @@ class anti_rape(minqlx.Plugin):
                 del self.scores_snapshot[player.steam_id]
             if player.steam_id in self.realscores:
                 del self.realscores[player.steam_id]
+            if player.steam_id in self.realdamage:
+                del self.realdamage[player.steam_id]
 
-
-    def handle_stats(self, stats):
-        if stats.get('TYPE') == 'ROUND_OVER':
-            for p_ in self.players():
-                if p_.team in ['red', 'blue']: # Only update playing players
-                    self.scores_snapshot[p_.steam_id] = [p_.team, p_.stats.damage_dealt]
 
     # On disconnect, remove from our dictionaries
     def handle_player_disconnect(self, player, reason):
@@ -150,6 +159,8 @@ class anti_rape(minqlx.Plugin):
             del self.handicaps[player.steam_id]
         if player.steam_id in self.realscores:
             del self.realscores[player.steam_id]
+            if player.steam_id in self.realdamage:
+                del self.realdamage[player.steam_id]
 
 
     # just a little longer delay than the myban plugin
@@ -179,7 +190,7 @@ class anti_rape(minqlx.Plugin):
             if set_hc.startswith(HC_TAG):
                 self.handicaps[player.steam_id] = set_hc.strip(SHC_TAG)
                 if not (SHC_TAG in set_hc):
-                    minqlx.CHAT_CHANNEL.reply("^6{}^7's handicap has been set to: ^3{}^7％.".format(player.name, self.handicaps[player.steam_id]))
+                    minqlx.CHAT_CHANNEL.reply("^6{}^7's handicap has been set to: ^3{}^7％".format(player.name, self.handicaps[player.steam_id]))
                 return d
 
         # At this stage, the request was not started by the server, but by a player.
@@ -192,9 +203,15 @@ class anti_rape(minqlx.Plugin):
 
 
 
+    def handle_death(self, victim, killer, data):
+        if not (self.game.state != 'in-progress' or self.round_countdown or killer):
+            self.realscores[victim.steam_id] = self.realscores.get(victim.steam_id, 0) - 1
 
+    def handle_round_start(self, round_number):
+        self.round_countdown = False
 
     # On round end check if we need to check for rapist warnings
+    @minqlx.delay(1)
     def handle_round_end(self, data):
         def calc_time_delta(time1, time2):
             return abs(time1 - time2)
@@ -233,18 +250,39 @@ class anti_rape(minqlx.Plugin):
                 self.set_silent_handicap(player, 100)
 
         def update_realscores(teams):
-            for _p in teams['red']+teams['blue']:
-                curr_dmg = _p.stats.damage_dealt
-                team, prev_dmg = self.scores_snapshot.get(_p.steam_id, [_p.team, curr_dmg])
-                diff = curr_dmg - prev_dmg
-                realdamage = curr_dmg/100 + diff / int(_p.cvars.get('handicap', 100))
-                self.realscores[_p.steam_id] = int(round(realdamage)) + _p.stats.kills
+            minqlx.console_command("echo Updating realscores (red: {} - blue: {})".format(self.game.red_score, self.game.blue_score))
 
-                minqlx.console_command("echo DBG: {} score: {} realscore: {}".format(_p.name, _p.stats.score, self.realscores[_p.steam_id]))
+            # Calculate if we are in a special case (in case of plugin reload)
+            first_round = self.game.red_score + self.game.blue_score == 1
+            special_case =  not (self.scores_snapshot or first_round)
+
+            for _p in teams['red'] + teams['blue']:
+                # Gather the data
+                sid = _p.steam_id
+                score = _p.stats.score
+                frags = _p.stats.kills
+                curr_dmg = _p.stats.damage_dealt
+                hc = int(_p.cvars.get('handicap', 100))
+                prev_dmg = self.scores_snapshot.get(sid, [None, curr_dmg if special_case else 0])[1]
+                diff = curr_dmg - prev_dmg
+                actual_diff = diff / hc
+
+                # Calculate / update the 'real' scores
+                self.realdamage[sid] = self.realdamage.get(sid, 0) + actual_diff
+                self.realscores[sid] = int(self.realdamage[sid] + frags)
+
+                # while we're here, update snapshots for next round
+                self.scores_snapshot[sid] = [_p.team, curr_dmg]
+
+                dbg = "echo DBG: {}({}％) pdmg: {} cdmg: {} diff: {} tot.kills: {} scr: {} rscr: {}"
+                minqlx.console_command(dbg.format(_p.name, hc, prev_dmg, curr_dmg, diff, frags, score, self.realscores[sid]))
 
         # If this was the last round, nothing to do
         if self.game.roundlimit in [self.game.blue_score, self.game.red_score]:
             return self.clear_all_handicaps()
+
+        # We are now in round countdown until round starts
+        self.round_countdown = True
 
         # Add players that werent in it before (maybe plugin reload during game)
         teams = self.teams()
@@ -284,25 +322,10 @@ class anti_rape(minqlx.Plugin):
                     if hc: self.set_silent_handicap(p, hc)
                     if hc: self.delay(["","^6{}^7 score index: ^1{}^7％ above average - Handicap set to: ^3{}^7％".format(p.name, gap, hc)], 0.3)
                     continue
-                elif rapist and (gap >= RAPE_LOWER_GAP): # if lower_gap <= gap <= mid_gap --> set to MID GAP hc
-                    hc = self.help_get_hc_suggestion(RAPE_MIDER_GAP)
-                    if hc: self.set_silent_handicap(p, hc)
-                    # No message because it is not the first handicap, and a vast number anyways
-                    continue
+
             # If player is in losing team or was not a rapist with a high gap
             reset(p)
 
-    def cmd_hc_commands(self, player, msg, channel):
-        cmds = ["!hc", "^1!sethc", "!hc_info", "!hc_info_mid", "!gaps", "^1!rapers", "^1!raper", "!unmark" ]
-        channel.reply("^7Available anti_rape commands: ^2{}^7.".format("^7, ^2".join(cmds)))
-
-    def cmd_info(self, player, msg, channel):
-        channel.reply("^7Players with more than ^3{}^7％ score/min than server average will be handicapped.".format(RAPE_UPPER_GAP))
-        return minqlx.RET_STOP_ALL
-
-    def cmd_info_mid(self, player, msg, channel):
-        channel.reply("^7Rapists with a score/min gap in ^3{}^7％-^3{}^7％ will receive a little handicap.".format(RAPE_LOWER_GAP, RAPE_MIDER_GAP))
-        return minqlx.RET_STOP_ALL
 
     # Little debug command, to check the rape scores during a game. Rape scores <= 0% are not shown.
     # don't forget to add 'silent' behind it to get silent calculations
@@ -349,62 +372,6 @@ class anti_rape(minqlx.Plugin):
             self.delaytell(messages, player, 0.3)
             return minqlx.RET_STOP_ALL
 
-
-    def cmd_get_rapers(self, player, msg, channel):
-        def id_to_name(steam_id):
-            # Try in the names database
-            if self.db[_name_key.format(steam_id)]:
-                return self.db[_name_key.format(steam_id)]
-            # Try every player
-            for p in self.players():
-                if p.steam_id == steam_id:
-                    return p.name
-            # Give up
-            return steam_id
-
-        if (not self.game) or (self.game.state != "in_progress"):
-            message = "^7No game in progress..."
-        else:
-            message = "^7Rapers: {}".format(",".join(['%s(^3%s％^7)' % (id_to_name(key), value) for (key, value) in self.handicaps.items()]))
-
-        if len(msg) == 2 and msg[1] == "silent":
-            player.tell("^6Psst: " + message)
-            return minqlx.RET_STOP_ALL
-
-        channel.reply(message)
-
-    def cmd_set_raper(self, player, msg, channel):
-        if len(msg) < 2:
-            return minqlx.RET_USAGE
-
-        target_player = self.find_by_name_or_id(player, msg[1])
-        if not target_player:
-            return minqlx.RET_STOP_ALL
-
-        if target_player.steam_id in self.handicaps:
-            player.tell("^6Player {} is already marked as a rapist :-)".format(target_player.name))
-            return minqlx.RET_STOP_ALL
-
-        self.set_silent_handicap(target_player, 100)
-        player.tell("^6Player {} has succesfully been marked as a raper!".format(target_player.name))
-        return minqlx.RET_STOP_ALL
-
-    def cmd_unsert_raper(self, player, msg, channel):
-        if len(msg) < 2:
-            return minqlx.RET_USAGE
-
-        target_player = self.find_by_name_or_id(player, msg[1])
-        if not target_player:
-            return minqlx.RET_STOP_ALL
-
-        if target_player.steam_id in self.handicaps:
-            self.set_silent_handicap(target_player, 100)
-            del self.handicaps[target_player.steam_id]
-            player.tell("^6Player {} has been unmarked as a rapist :-)".format(target_player.name))
-            return minqlx.RET_STOP_ALL
-
-        player.tell("^6Player {} was not even a raper!".format(target_player.name))
-        return minqlx.RET_STOP_ALL
 
 
     def cmd_get_hc(self, player, msg, channel):
@@ -458,6 +425,61 @@ class anti_rape(minqlx.Plugin):
                     channel.reply(m)
 
 
+    def cmd_get_rapers(self, player, msg, channel):
+        def id_to_name(steam_id):
+            # Try in the names database
+            if self.db[_name_key.format(steam_id)]:
+                return self.db[_name_key.format(steam_id)]
+            # Try every player
+            for p in self.players():
+                if p.steam_id == steam_id:
+                    return p.name
+            # Give up
+            return steam_id
+
+        if (not self.game) or (self.game.state != "in_progress"):
+            message = "^7No game in progress..."
+        else:
+            message = "^7Rapers: {}".format(",".join(['%s(^3%s％^7)' % (id_to_name(key), value) for (key, value) in self.handicaps.items()]))
+
+        if len(msg) == 2 and msg[1] == "silent":
+            player.tell("^6Psst: " + message)
+            return minqlx.RET_STOP_ALL
+
+        channel.reply(message)
+
+    def cmd_hc_commands(self, player, msg, channel):
+        cmds = ["!hc", "^1!sethc", "!hc_info", "!hc_info_mid", "!gaps", "^1!rapers", "^1!raper", "!unmark" ]
+        channel.reply("^7Available anti_rape commands: ^2{}^7.".format("^7, ^2".join(cmds)))
+
+    def cmd_info(self, player, msg, channel):
+        channel.reply("^7Players with more than ^3{}^7％ score/min than server average will be handicapped.".format(RAPE_UPPER_GAP))
+        return minqlx.RET_STOP_ALL
+
+
+    def cmd_list_handicaps(self, player, msg, channel):
+        handicapable_players = []
+        message = "^7There are no active handicaps on the server."
+
+        for p in self.players():
+            if int(p.cvars.get('handicap', '100')) < 100:
+                handicapable_players.append(p)
+
+        if handicapable_players:
+            message = "^7" + ",".join(list(map(lambda _p: "{}-^3{}％^7".format(_p.name, _p.cvars['handicap']), handicapable_players)))
+
+        if len(msg) < 2:
+            return channel.reply(message)
+        elif len(msg) < 3 and msg[1] == 'silent':
+            player.tell("^6Psst: ^7" + message)
+            return minqlx.RET_STOP_ALL
+
+        return minqlx.RET_USAGE
+
+    def cmd_rem_handicaps(self, player, msg, channel):
+        self.help_remove_handicaps()
+        channel.reply("^7Done! There are no current handicaps on the server.")
+
 
     def cmd_set_hc(self, player, msg, channel):
         if len(msg) == 3:
@@ -483,6 +505,43 @@ class anti_rape(minqlx.Plugin):
         self.set_handicap(target_player, hc)
         # Delete so the plugin doesnt think it's a raper
         del self.handicaps[target_player.steam_id]
+
+
+
+    def cmd_set_raper(self, player, msg, channel):
+        if len(msg) < 2:
+            return minqlx.RET_USAGE
+
+        target_player = self.find_by_name_or_id(player, msg[1])
+        if not target_player:
+            return minqlx.RET_STOP_ALL
+
+        if target_player.steam_id in self.handicaps:
+            player.tell("^6Player {} is already marked as a rapist :-)".format(target_player.name))
+            return minqlx.RET_STOP_ALL
+
+        self.set_silent_handicap(target_player, 100)
+        player.tell("^6Player {} has succesfully been marked as a raper!".format(target_player.name))
+        return minqlx.RET_STOP_ALL
+
+    def cmd_unsert_raper(self, player, msg, channel):
+        if len(msg) < 2:
+            return minqlx.RET_USAGE
+
+        target_player = self.find_by_name_or_id(player, msg[1])
+        if not target_player:
+            return minqlx.RET_STOP_ALL
+
+        if target_player.steam_id in self.handicaps:
+            self.set_silent_handicap(target_player, 100)
+            del self.handicaps[target_player.steam_id]
+            player.tell("^6Player {} has been unmarked as a rapist :-)".format(target_player.name))
+            return minqlx.RET_STOP_ALL
+
+        player.tell("^6Player {} was not even a raper!".format(target_player.name))
+        return minqlx.RET_STOP_ALL
+
+
 
 
 
@@ -581,17 +640,17 @@ class anti_rape(minqlx.Plugin):
         # Get scores/second of all players
         avg_scores = []
         for p in teams['red'] + teams['blue']:
-            if self.rounds_played.get(p.steam_id, 0) >= 1:
-                sps = p.stats.score / p.stats.time
-                avg_scores.append(sps)
+            if self.rounds_played.get(p.steam_id, 0):
+                score = self.realscores.get(p.steam_id, p.stats.score)
+                avg_scores.append(score / p.stats.time)
 
         # Now calculate the averages
-        if len(avg_scores) >= 1: return sum(avg_scores) / len(avg_scores)
+        if len(avg_scores): return sum(avg_scores) / len(avg_scores)
         return -1
 
     # Calculate handicap suggestion (as discussed on station.boards.net):
     def help_get_hc_suggestion(self, rape_score):
-        hc = int( 104 - rape_score / 1.8 )
+        hc = int( 108 - rape_score / 2.1 )
 
         diff = abs ( self.game.red_score - self.game.blue_score )
 
@@ -612,3 +671,9 @@ class anti_rape(minqlx.Plugin):
         avg_score = self.help_get_avg_score()
         if avg_score > 0: return int ( sps * 100 / avg_score - 100 )
         return "invalid"
+
+    def help_remove_handicaps(self):
+        # Reset al handicaps and suggestions
+        for _p in self.players():
+            self.set_silent_handicap(_p, 100)
+            del self.handicaps[_p.steam_id]
