@@ -3,10 +3,9 @@
 
 # This is a plugin created by iouonegirl(@gmail.com)
 #
-# Its purpose is to detect rapers and give them fair warnings.
-# The warning will tell players to handicap or be kicked from
-# the server. The detection rules have been discussed on
-# boards.station.net and are subject to finetuning.
+# Its purpose is to detect rapers and give them fair handicaps.
+# The detection rules have been intensely discussed and finetuned,
+# and can be found on station.boards.net (home forum of the bus station).
 
 # Disclaimer: any use of the word 'rape' is not meant to be offensive or
 # offend anyone in any way. This was simply the most fitting term for an
@@ -20,7 +19,7 @@ import datetime
 import threading
 from math import floor
 
-VERSION = "v0.42"
+VERSION = "v0.43"
 
 
 # From which percentage we classify a rape.
@@ -28,8 +27,8 @@ VERSION = "v0.42"
 # Rapers will receive to get a handicap if they are not in a losing team,
 # or is their gap is below the lower rape gap.
 # For more information about these gaps please visit station.boards.net
-RAPE_MIDER_GAP = 20 # default 30
-RAPE_UPPER_GAP = 20 # default 60
+RAPE_MIDER_GAP = 20 # default 20
+RAPE_UPPER_GAP = 20 # default 20
 
 # We want the first rounds to have a higher treshhold to mark a player
 # Adjust this dictionary to multiply the UPPER_GAP by an amount for a given round
@@ -47,7 +46,7 @@ HANDICAP_ADJUSTMENTS = {0:1, 1:1, 2:0.9, 3:0.8}
 DEFAULT_HANDICAP_ADJUSTMENT = 0.7
 
 # The amount of rounds and people needed before we start calculating.
-ROUNDS_NEEDED = 2 # default 3
+ROUNDS_NEEDED = 2 # default 2
 PEOPLE_NEEDED = 4 # default 4
 
 
