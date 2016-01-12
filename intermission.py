@@ -11,7 +11,7 @@
 
 import minqlx
 
-VERSION = "v0.4"
+VERSION = "v0.5"
 
 # These songs will be looped one by one
 SONGS = [
@@ -48,4 +48,4 @@ class intermission(minqlx.Plugin):
 
     def cmd_version(self, player, msg, channel):
         plugin = self.__class__.__name__
-        channel.reply("^7Currently using ^3iou^7one^4girl^7's version ^6{}^7 of roasticle's edited ^6{}^7 plugin.".format(plugin, VERSION))
+        channel.reply("^7Using ^3iou^7one^4girl^7's edit version ^6{}^7 of roasticle's ^6{}^7 plugin.".format(VERSION, plugin))
