@@ -2,12 +2,12 @@
 
 This repo will contain several plugins which I have developed for [Mino's minqlx](https://github.com/MinoMino/minqlx "MinoMino/minqlx").
 
-Most ideas have been created, worked out and evaluated on <bus.station.net>, the official forum of the 'Bus Station' servers.
+Most ideas have been created, worked out and evaluated on <station.boards.net>, the official forum of the 'Bus Station' servers.
 
 If you wish to use my plugins, I'd really appreciate a small message, either via email, steam or on the forum. 
 This way the people who have worked so hard on them get some praise and we know which servers are using them.
 
-Creating an account on <http://bus.station.net> is advised if you want to follow updates on the plugins.
+Creating an account on <http://station.boards.net> is advised if you want to follow updates on the plugins.
 Just as minqlx, these plugins are still in development and prone to small updates.
 
 You are free to change any variables and output messages in the file itself, but remember that the plugins are not 100% foolproof and unexpected behavior can occur. 
