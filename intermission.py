@@ -31,6 +31,10 @@ class intermission(minqlx.Plugin):
             # add / remove whichever round numbers you want
         }
 
+        # If this was the last round, let the handle_game_end hook play something
+        if self.game.roundlimit in [self.game.blue_score, self.game.red_score]:
+            return
+
         try:
             if roundnumber in rounds_songs:
                 self.play_sound(rounds_songs[roundnumber])
