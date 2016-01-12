@@ -15,10 +15,9 @@ VERSION = "v0.5"
 
 # These songs will be looped one by one
 SONGS = [
-    "sound/songname/songtitle",
-    "sound/songname/songtitle",
-    "sound/songname/songtitle",
-    "sound/songname/songtitle",
+    #"sound/songname/songtitle",
+    #"sound/songname/songtitle",
+    #"sound/songname/songtitle",
 ]
 
 class intermission(minqlx.Plugin):
