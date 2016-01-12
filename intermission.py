@@ -11,42 +11,35 @@
 
 import minqlx
 
-VERSION = "v0.3"
+VERSION = "v0.4"
+
+# These songs will be looped one by one
+SONGS = [
+    "sound/songname/songtitle",
+    "sound/songname/songtitle",
+    "sound/songname/songtitle",
+    "sound/songname/songtitle",
+]
 
 class intermission(minqlx.Plugin):
-
     def __init__(self):
-
         self.index = 0
 
         self.add_hook("game_end", self.handle_game_end)
-        self.add_hook("round_end", self.handle_round_end)
         self.add_command("v_intermission", self.cmd_version)
 
     def handle_game_end(self, *args, **kwargs):
-        self.play_sound(self.get_cvar("qlx_intermissionSound"))
 
-    def handle_round_end(self, roundnumber):
-
-        # These songs will be looped one by one
-        rounds_songs = [
-            "sound/songname/songtitle",
-            "sound/songname/songtitle",
-            "sound/songname/songtitle",
-            "sound/songname/songtitle",
-        ]
-
-        # If this was the last round, let the handle_game_end hook play something
-        if self.game.roundlimit in [self.game.blue_score, self.game.red_score]:
-            return
+        # If there are no songs defined, return
+        if not SONGS: return
 
         # If last time the index was incremented too high, loop around
-        if self.index == len(rounds_songs):
+        if self.index == len(SONGS):
             self.index = 0
 
-        # Try to play the file
+        # Try to play sound file
         try:
-            self.play_sound(rounds_songs[self.index])
+            self.play_sound(SONGS[self.index])
         except Exception as e:
             self.msg("^1Error: ^7{}".format(e))
 
