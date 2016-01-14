@@ -13,13 +13,6 @@
 # uneven teams, and kicking people if they fall below server elo
 # requirements
 
-# Important! This plugin is meant to exist together with mino balance,
-# but some methods need to overrule mino's plugin. So please open balance.py
-# and comment out the following lines:
-#    44  # self.add_command(("setrating", "setelo"), self.cmd_setrating, 3, usage="<id> <rating>")
-#    45  # self.add_command(("getrating", "getelo", "elo"), self.cmd_getrating, usage="<id> [gametype]")
-#    46  # self.add_command(("remrating", "remelo"), self.cmd_remrating, 3, usage="<id>")
-
 
 import minqlx
 import requests
@@ -31,17 +24,22 @@ import os
 
 from minqlx.database import Redis
 
-VERSION = "v0.20"
+VERSION = "v0.27"
 
-ELO_MIN = 999 # default (and minimum elo) is 1000, so anything below that equals unrestricted
-ELO_MAX = 1800
+ELO_MIN = 0 # default (and minimum elo) is 1000, so anything below that equals unrestricted
+ELO_MAX = 1600
 GAMES_NEEDED = 10 # games needed to have been tracked by qlstats.net before we apply the limit
 
 # Add a little bump to the boundary for regulars.
 # This list must be in ordered lists of [games_needed, elo_bump] from small to big
 # E.g. [ [25,100],  [50,200],  [75,400],  [100,800] ]
 # --> if a player has played 60 games on our server -> he reaches [50,200] and the upper elo limit adds 200
+# To disable service: set BOUNDARIES = []
 BOUNDARIES = [ [25,100],  [50,200],  [75,400],  [100,800] ]
+
+# If this is True, a message will be printed on the screen of the person who should spec when teams are uneven
+CP = True
+CP_MESS = "\n\n\nTeams are uneven. You will be forced to spec."
 
 # Default action to be performed when teams are uneven:
 # Options: spec, slay, ignore
@@ -60,11 +58,14 @@ EXCEPTIONS_FILE = "exceptions.txt"
 # Elo retrieval vars
 EXT_SUPPORTED_GAMETYPES = ("ca", "ctf", "dom", "ft", "tdm", "duel", "ffa")
 RATING_KEY = "minqlx:players:{0}:ratings:{1}" # 0 == steam_id, 1 == short gametype.
-API_URL = "http://qlstats.net:8080/elo/{}"
+API_URL = "http://qlstats.net:8080/elo_b/{}"
 MAX_ATTEMPTS = 3
 CACHE_EXPIRE = 60*30 # 30 minutes TTL.
 DEFAULT_RATING = 1000
 SUPPORTED_GAMETYPES = ("ca", "ctf", "dom", "ft", "tdm")
+
+# Change this for other ratings
+DEFAULT_TYPE = "ca"
 
 class mybalance(minqlx.Plugin):
     def __init__(self):
@@ -77,6 +78,9 @@ class mybalance(minqlx.Plugin):
         # steam_id : [name, elo]
         self.kicked = {}
 
+        # collection of [steam_id, name, thread]
+        self.kickthreads = []
+
         self.ratings_lock = threading.RLock()
         # Keys: steam_id - Items: {"ffa": {"elo": 123, "games": 321, "local": False}, ...}
         self.ratings = {}
@@ -84,11 +88,14 @@ class mybalance(minqlx.Plugin):
         self.exceptions = []
         self.cmd_help_load_exceptions(None, None, None)
 
+
         self.add_command("prevent", self.cmd_prevent_last, 2)
         self.add_command("last", self.cmd_last_action, 2, usage="[SLAY|SPEC|IGNORE]")
         self.add_command("load_exceptions", self.cmd_help_load_exceptions, 5)
+        self.add_command("add_exception", self.cmd_add_exception, 5, usage="<name>|<steam_id> <name>")
         self.add_command("elokicked", self.cmd_elo_kicked)
         self.add_command("remkicked", self.cmd_rem_kicked, 2, usage="<id>")
+        self.add_command(("nokick", "dontkick"), self.cmd_nokick, 2, usage="[<name>]")
         self.add_command(("v_mybalance", "version_mybalance"), self.cmd_version)
         self.add_hook("team_switch", self.handle_team_switch)
         self.add_hook("round_start", self.handle_round_start)
@@ -97,7 +104,14 @@ class mybalance(minqlx.Plugin):
         self.add_hook("player_connect", self.handle_player_connect)
         self.add_hook("player_disconnect", self.handle_player_disconnect)
 
-        # Please comment these lines in the original balance.py
+        try:
+            balance = minqlx.Plugin._loaded_plugins['balance']
+            remove_commands = set('setrating', 'setelo', 'getrating', 'elo', 'remrating', 'remelo')
+            for cmd in balance.commands.copy():
+                if remove_commands.intersection(cmd.name):
+                    balance.remove_command(cmd.name, cmd.handler)
+        except:
+            pass
         self.add_command(("setrating", "setelo"), self.cmd_setrating, 3, usage="<id>|<name> <rating>")
         self.add_command(("getrating", "getelo", "elo"), self.cmd_getrating, usage="<id>|<name> [gametype]")
         self.add_command(("remrating", "remelo"), self.cmd_remrating, 3, usage="<id>|<name>")
@@ -106,6 +120,8 @@ class mybalance(minqlx.Plugin):
     # View a list of kicked players with their ID and elo
     def cmd_elo_kicked(self, player, msg, channel):
         n = 0
+        if not self.kicked:
+            channel.reply("No players kicked since plugin (re)start.")
         for sid in self.kicked:
             name, elo = self.kicked[sid]
             m = "^7{}: 6{}^7 - ^6{}^7 - ^6{}".format(n, sid, elo, name)
@@ -126,6 +142,125 @@ class mybalance(minqlx.Plugin):
         del self.kicked[n]
         channel.reply("^7Successfully removed ^6{}^7 (elo {}) from the list.".format(name, elo))
 
+    def cmd_nokick(self, player, msg, channel):
+        def dontkick(kickthread):
+            sid, nam, thr = kickthread
+            thr.stop()
+            if sid in self.kicked:
+                del self.kicked[sid]
+
+            new_kickthreats = []
+            for kt in self.kickthreads:
+                if kt[0] != sid:
+                    new_kickthreats.append(kt)
+            self.kickthreads = new_kickthreats
+
+            try:
+                self.find_player(nam)[0].unmute()
+            except:
+                pass
+            channel.reply("^7An admin has prevented {} from being kicked.".format(nam))
+
+        if not self.kickthreads:
+                player.tell("^6Psst^7: There are no people being kicked right now.")
+                return minqlx.RET_STOP_ALL
+
+        # if there is only one
+        if len(self.kickthreads) == 1:
+            dontkick(self.kickthreads[0])
+            return
+
+        # If no arguments given
+        if len(msg) < 2:
+            _names = map(lambda _el: _el[1], self.kickthreads)
+            player.tell("^6Psst^7: did you mean ^6{}^7?".format("^7 or ^6".join(_names)))
+            return minqlx.RET_STOP_ALL
+
+        # If a search term, name, was given
+        else:
+
+            match_threads = [] # Collect matching names
+            new_threads = [] # Collect non-matching threads
+
+            for kt in self.kickthreads:
+                if msg[1] in kt[1]:
+                    match_threads.append(kt)
+                else:
+                    new_threads.append(kt)
+
+            # If none of the threads had a name like that
+            if not match_threads:
+                player.tell("^6Psst^7: no players matched '^6{}^7'?".format(msg[1]))
+                return minqlx.RET_STOP_ALL
+
+            # If there was one result:
+            if len(match_threads) == 1:
+                self.kickthreads = new_threads
+                dontkick(match_threads.pop())
+                return
+
+            # If multiple results were found:
+            else:
+                _names = map(lambda el: el[1], match_threads)
+                player.tell("^6Psst^7: did you mean ^6{}^7?".format("^7 or ^6".join(_names)))
+                return minqlx.RET_STOP_ALL
+
+
+
+
+
+
+    def cmd_add_exception(self, player, msg, channel):
+        try:
+            # more than 2 arguments = NO NO
+            if len(msg) > 3:
+                return minqlx.RET_USAGE
+
+            # less than 2 arguments is NOT OKAY if it was with a steam id
+            if len(msg) < 3 and len(msg[1]) == 17:
+                return minqlx.RET_USAGE
+
+            # if steam_id given
+            if len(msg[1]) == 17:
+                add_sid = int(msg[1])
+                add_nam = msg[2]
+
+            # if name given
+            else:
+                target = self.find_by_name_or_id(player, msg[1])
+                if not target:
+                    return minqlx.RET_STOP_ALL
+                add_sid = target.steam_id
+                add_nam = msg[2] if len(msg) == 3 else target.name
+
+
+            script_dir = os.path.dirname(__file__) #<-- absolute dir the script is in
+            abs_file_path = os.path.join(script_dir, EXCEPTIONS_FILE)
+            with open (abs_file_path, "r") as file:
+                for line in file:
+                    sid, name = line.split(" ")
+                    if int(sid) == add_sid:
+                        channel.reply("^7This ID is already in the exception list under name ^6{}^7!".format(name))
+                        return
+
+            with open (abs_file_path, "a") as file:
+                file.write("{} {}\n".format(add_sid, add_nam))
+
+            if not add_sid in self.exceptions:
+                self.exceptions.append(add_sid)
+            if add_sid in self.kicked:
+                del self.kicked[add_sid]
+            channel.reply("^2Succesfully ^7added ^6{} ^7to the exception list.".format(add_nam))
+            return
+
+        except IOError as e:
+            channel.reply("^1IOError: ^7{}".format(e))
+
+        except ValueError as e:
+            return minqlx.RET_USAGE
+
+        except Exception as e:
+            channel.reply("^1Error: ^7{}".format(e))
 
 
     # Load a list of exceptions
@@ -172,7 +307,7 @@ class mybalance(minqlx.Plugin):
     def handle_player_connect(self, player):
         # If you are not an exception, you must be checked for elo limit
         if not (player.steam_id in self.exceptions):
-            self.fetch(player, "ca", self.callback)
+            self.fetch(player, DEFAULT_TYPE, self.callback)
 
         # Record their join times regardless
         self.jointimes[player.steam_id] = time.time()
@@ -180,6 +315,18 @@ class mybalance(minqlx.Plugin):
     def handle_player_disconnect(self, player, reason):
         if player.steam_id in self.jointimes:
             del self.jointimes[player.steam_id]
+
+        new_kickthreads = []
+        for kt in self.kickthreads:
+            if kt[0] != player.steam_id:
+                new_kickthreads.append(kt)
+            else:
+                try:
+                    thread = kt[2]
+                    thread.stop()
+                except:
+                    pass
+        self.kickthreads = new_kickthreads
 
 
     def handle_team_switch(self, player, old, new):
@@ -215,6 +362,7 @@ class mybalance(minqlx.Plugin):
                 self.db[LAST_KEY] = lowest_player.steam_id
             elif self.last_action == "spec":
                 lowest_player.put("spectator")
+                minqlx.send_server_command(lowest_player.id, "cp \"\n\n\nYou were moved to spec to keep the teams even.\"")
                 minqlx.CHAT_CHANNEL.reply("^6{} ^7was moved to spec to even teams!".format(lowest_player.name))
 
             elif self.last_action == "ignore":
@@ -243,7 +391,7 @@ class mybalance(minqlx.Plugin):
 
     def handle_round_count(self, round_number):
 
-        if self.db[LAST_KEY]:
+        if LAST_KEY in self.db:
             del self.db[LAST_KEY]
 
         # If teams are even, just return
@@ -256,6 +404,7 @@ class mybalance(minqlx.Plugin):
         else:
             target = self.algo_get_last()
             if target:
+                if CP: minqlx.send_server_command(target.id, "cp \"{}\"".format(CP_MESS))
                 minqlx.CHAT_CHANNEL.reply("^7Uneven teams detected! At round start I will automatically ^6{} ^7{}!".format(self.last_action, target.name))
             else:
                 minqlx.CHAT_CHANNEL.reply("^7Uneven teams detected! At round start I will automatically ^6{} ^7the odd player!".format(self.last_action))
@@ -485,7 +634,7 @@ class mybalance(minqlx.Plugin):
 
         m = "{} ".format(name)
         elos = []
-        key = RATING_KEY.format(sid, "ca")
+        key = RATING_KEY.format(sid, DEFAULT_TYPE)
         if key in self.db:
             dbelo = int(self.db[key])
             elos.append("^7local elo: ^6{}".format(dbelo))
@@ -494,6 +643,44 @@ class mybalance(minqlx.Plugin):
 
         if elos: minqlx.CHAT_CHANNEL.reply("^6{}".format(m) + " ^7, ".join(elos) + "^7.")
 
+
+    def help_start_kickthread(self, player, elo):
+        class kickThread(threading.Thread):
+            def __init__(self, plugin, player, elo):
+                threading.Thread.__init__(self)
+                self.plugin = plugin
+                self.player = player
+                self.elo = elo
+                self.go = True
+            def try_mess(self):
+                time.sleep(0.5)
+                self.plugin.msg("Sorry, {} your elo ({}) doesn't meet the server requirements. You'll be ^6kicked ^7shortly.".format(self.player.name, self.elo))
+            def try_mute(self):
+                time.sleep(8)
+                self.player = self.plugin.find_player(self.player.name)[0]
+                if not self.player: self.stop()
+                if self.go: self.player.mute()
+            def try_kick(self):
+                time.sleep(14)
+                self.player = self.plugin.find_player(self.player.name)[0]
+                if not self.player: self.stop()
+                if self.go: self.player.kick("^1GOT KICKED!^7 Elo ({}) was too high for this server.".format(self.elo))
+            def run(self):
+                self.try_mute()
+                self.try_kick()
+                self.stop()
+            def stop(self):
+                self.go = False
+                new_kickthreads = []
+                for kt in self.plugin.kickthreads:
+                    if kt[0] != self.player.steam_id:
+                        new_kickthreads.append(kt)
+                self.plugin.kickthreads = new_kickthreads
+                del self
+
+        t = kickThread(self, player, elo)
+        t.start()
+        self.kickthreads.append([player.steam_id, player.clean_name.lower(), t])
 
 
     def callback(self, player, elo, games):
@@ -505,7 +692,7 @@ class mybalance(minqlx.Plugin):
                 fun(player)
             except: pass
 
-        key = RATING_KEY.format(player.steam_id, "ca")
+        key = RATING_KEY.format(player.steam_id, DEFAULT_TYPE)
         if (key in self.db):# and (int(self.db[key]) > elo):
             elo = int(self.db[key])
 
@@ -532,7 +719,8 @@ class mybalance(minqlx.Plugin):
             act1 = lambda: do_with(lambda _p: _p.mute())
             act2 = lambda: minqlx.CHAT_CHANNEL.reply("^7"+m.format(player.name, elo))
             act3 = lambda: do_with(lambda _p: minqlx.kick(_p.id, "^1GOT KICKED!^7 Elo ({}) was too low for this server.".format(elo)))
-            self.delayact([None, None, act1, act2, None, act3], 6)
+            #self.delayact([None, None, act1, act2, None, act3], 6)
+            self.help_start_kickthread(player, elo)
 
         elif max_elo < elo:
             self.kicked[player.steam_id] = [player.name or "unknown_name", elo]
@@ -540,7 +728,8 @@ class mybalance(minqlx.Plugin):
             act1 = lambda: do_with(lambda _p: _p.mute())
             act2 = lambda: minqlx.CHAT_CHANNEL.reply("^7"+m.format(player.name, elo))
             act3 = lambda: do_with(lambda _p: minqlx.kick(_p.id, "^1 GOT KICKED!^7 Elo ({}) was too high for this server.".format(elo)))
-            self.delayact([None, None, act1, act2, None, act3], 6)
+            #self.delayact([None, None, act1, act2, None, act3], 6)
+            self.help_start_kickthread(player, elo)
 
     def find_by_name_or_id(self, player, target):
         # Find players returns a list of name-matching players
