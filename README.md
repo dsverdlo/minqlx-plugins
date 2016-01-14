@@ -25,13 +25,17 @@ If their score/second values are above a certain threshold (in regards to the se
 The complete process of thoughts can be found in the 'handicap-thread' on the Bus Station forum. **Disclaimer:** The term 'rape' in this context is only used to describe an overpowered online player making the game unfair for others below his skill level. It is not meant in any way to offend or refer to the horrible crime that is also known under this name.
 
 - **mybalance**
-This plugin is designed to be used with Mino's balance plugin, but adds some more features, like elo-limits for connecting players, using the elo commands by name, and applying an action to the last person on uneven teams (slay, spec or ignore).
-Furthermore this plugin creates a text file in which exceptions can be placed for the elo restrictions, and adds a little bump to the elo restriction for regular players.
-**IMPORTANT: to use the mybalance plugin, please comment out, or delete the following lines from the original balance.py:***
-```python
-      self.add_command(("setrating", "setelo"), self.cmd_setrating, 3, usage="<id> <rating>")
-      self.add_command(("getrating", "getelo", "elo"), self.cmd_getrating, usage="<id> [gametype]")
-      self.add_command(("remrating", "remelo"), self.cmd_remrating, 3, usage="<id>")
-```
+This plugin is designed to be used in alliance with Mino's balance plugin, but adds some more features, like elo-limits for connecting players, using the elo commands by name, and applying an action to the last person on uneven teams (slay, spec or ignore).
+Furthermore this plugin creates a text file in which exceptions can be placed for the elo restrictions, and adds a little bump to the elo restriction for regular players. 
+
+- **intermission**
+An enhancement of roasticle's basic intermission plugin. This plugin will loop over a specified collection of sounds/music, by playing one sound at the end of a match. Upload sounds/music in a PK3 file to the workshop for it to work.
+
+- **centerprint**
+Provides a way to broadcast a message on everyone's screen, or just to individual people. Handy for important server announcements. Also shows a 'One enemy left' message on the screen if people want it. (toggle on/off with !showlast)
+
+- **player_info**
+Displays some more info about a player if the info command is used, and also provides a method to check a player's scoreboard information (in big CA matches people sometimes fall off / just below the scoreboard)
+
 
 
