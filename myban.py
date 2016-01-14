@@ -22,7 +22,7 @@ import datetime
 import time
 import re
 
-VERSION = "v0.7"
+VERSION = "v0.8"
 
 LENGTH_REGEX = re.compile(r"(?P<number>[0-9]+) (?P<scale>seconds?|minutes?|hours?|days?|weeks?|months?|years?)")
 TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
@@ -335,8 +335,10 @@ class myban(minqlx.Plugin):
         if not self.get_cvar("qlx_leaverBan", bool):
             return None
 
-        completed = self.db[PLAYER_KEY.format(steam_id) + ":games_completed"]
-        left = self.db[PLAYER_KEY.format(steam_id) + ":games_left"]
+        key = PLAYER_KEY.format(steam_id) + ":games_completed"
+        completed = None if not key in self.db else self.db[key]
+        key = PLAYER_KEY.format(steam_id) + ":games_left"
+        left = None if not key in self.db else self.db[key]
         if completed == None or left == None:
             return None
         else:

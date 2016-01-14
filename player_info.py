@@ -11,7 +11,10 @@
 import minqlx
 import requests
 
-VERSION = "v0.15"
+VERSION = "v0.16"
+
+# Fun server --> get B rankings
+FUN_SERVER = True
 
 PLAYER_KEY = "minqlx:players:{}"
 COMPLETED_KEY = PLAYER_KEY + ":games_completed"
@@ -20,7 +23,8 @@ LEFT_KEY = PLAYER_KEY + ":games_left"
 # Elo retrieval vars
 EXT_SUPPORTED_GAMETYPES = ("ca", "ctf", "dom", "ft", "tdm", "duel", "ffa")
 RATING_KEY = "minqlx:players:{0}:ratings:{1}" # 0 == steam_id, 1 == short gametype.
-API_URL = "http://qlstats.net:8080/elo_b/{}"
+API_URL = "http://qlstats.net:8080/elo/{}"
+if FUN_SERVER: API_URL = "http://qlstats.net:8080/elo_b/{}"
 MAX_ATTEMPTS = 3
 CACHE_EXPIRE = 60*30 # 30 minutes TTL.
 DEFAULT_RATING = 1000
@@ -34,6 +38,7 @@ class player_info(minqlx.Plugin):
         self.add_command("info", self.cmd_player_info,  usage="[<id>|<name>]")
         self.add_command("scoreboard", self.cmd_scoreboard, usage="[<id>|<name>]")
         self.add_command(("v_player_info", "version_player_info"), self.cmd_version)
+        self.add_command(("allelo", "allelos", "aelo", "eloall"), self.cmd_all_elos, usage="[<id>|<name>]")
 
 
     def cmd_version(self, player, msg, channel):
@@ -56,7 +61,26 @@ class player_info(minqlx.Plugin):
                 if not target_player: return minqlx.RET_STOP_EVENT
 
         # go fetch his elo
-        self.fetch(target_player, "ca")
+        self.fetch(target_player, self.game.type_short)
+
+
+    def cmd_all_elos(self, player, msg, channel):
+        if len(msg) > 2:
+            return minqlx.RET_USAGE
+
+        if len(msg) < 2:
+            target_player = player
+        else:
+            try:
+                sid = int(msg[1])
+                assert len(msg[1]) == 17
+                target_player = sid
+            except:
+                target_player = self.find_by_name_or_id(player, msg[1])
+                if not target_player: return minqlx.RET_STOP_EVENT
+
+        # go fetch his elo
+        self.fetch(target_player, None)
 
 
     # Show a player's stats (intended
@@ -139,12 +163,27 @@ class player_info(minqlx.Plugin):
             for p in js["players"]:
                 _sid = int(p["steamid"])
                 if _sid == sid: # got our player
-                    _gt = p[gt]
-                    return self.callback(player, _gt["elo"], _gt["games"])
+                    if gt: return self.callback(player, p[gt]["elo"], p[gt]["games"])
+                    return self.callback_all(player, p)
 
 
         # minqlx.CHAT_CHANNEL.reply("^7Problem fetching elo: " + last_status)
         return self.callback(player, 0, 0)
+
+
+    def callback_all(self, player, modes):
+        info = []
+        for mode in modes:
+            if mode not in EXT_SUPPORTED_GAMETYPES: continue
+            elo = modes[mode]['elo']
+            games = modes[mode]["games"]
+            info.append(" ^3{}^7: {} ({} games)".format(mode.upper(), elo, games))
+
+        if not info:
+            self.msg("^6{}^7 has no tracked elos.".format(player.name))
+        else:
+            b = 'b' if FUN_SERVER else ''
+            self.msg("^6{}^7's {}ELO's: {}".format(player.name, b, ", ".join(info)))
 
 
     def callback(self, target_player, elo, games):
@@ -164,17 +203,19 @@ class player_info(minqlx.Plugin):
         except:
             left = 0
 
+
         if left + completed == 0:
             games_here_p = 1
         else:
             games_here_p = left + completed
+
 
         info = ["^6{} ^7games here".format(completed + left)]
         if elo: info[0] = info[0] + " ^7(^6{}^7 tracked)".format(games)
 
         info.append("^7quit ^6{}^7％".format(round(left/(games_here_p)*100)))
 
-        if elo: info.append("^7bELO: ^6{}^7".format(elo, games))
+        if elo: info.append("^7{}ELO: ^6{}^7".format('b' if FUN_SERVER else '', elo, games))
 
         return minqlx.CHAT_CHANNEL.reply("^6{}^7: ".format(name) + "^7, ".join(info) + "^7.")
 
