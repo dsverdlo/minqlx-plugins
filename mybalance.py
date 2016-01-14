@@ -24,7 +24,7 @@ import os
 
 from minqlx.database import Redis
 
-VERSION = "v0.28"
+VERSION = "v0.29"
 
 ELO_MIN = 0 # default (and minimum elo) is 1000, so anything below that equals unrestricted
 ELO_MAX = 1600
@@ -128,7 +128,7 @@ class mybalance(minqlx.Plugin):
             channel.reply("No players kicked since plugin (re)start.")
         for sid in self.kicked:
             name, elo = self.kicked[sid]
-            m = "^7{}: 6{}^7 - ^6{}^7 - ^6{}".format(n, sid, elo, name)
+            m = "^7{}: ^6{}^7 - ^6{}^7 - ^6{}".format(n, sid, elo, name)
             channel.reply(m)
             n += 1
 
