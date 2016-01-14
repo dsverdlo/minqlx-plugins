@@ -5,19 +5,21 @@
 # https://github.com/roasticle/minqlx-plugins
 #
 # Has been edited by iouonegirl(@gmail.com) to support
-# a sound playing at the end of every round.
-# A PK3 file must exist and the songnames/paths too,
-# or you'll get an error on your screen.
+# a list of sound which will iterate a different song
+# after each match.
+#
+# Place the files in a PK3 file and upload it to a workshop.
+
 
 import minqlx
 
-VERSION = "v0.5"
+VERSION = "v0.6"
 
 # These songs will be looped one by one
 SONGS = [
-    #"sound/songname/songtitle",
-    #"sound/songname/songtitle",
-    #"sound/songname/songtitle",
+    #"sound/songname/songtitle.ogg",
+    #"sound/songname/songtitle.ogg",
+    #"sound/songname/songtitle.ogg",
 ]
 
 class intermission(minqlx.Plugin):
