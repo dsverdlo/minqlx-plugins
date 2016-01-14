@@ -1,4 +1,20 @@
-﻿# minqlx - A Quake Live server administrator bot.
+﻿#-------------------------------------------------------------------------------
+# Name:        module1
+# Purpose:
+#
+# Author:      david
+#
+# Created:     14-01-2016
+# Copyright:   (c) david 2016
+# Licence:     <your licence>
+#-------------------------------------------------------------------------------
+
+def main():
+    pass
+
+if __name__ == '__main__':
+    main()
+# minqlx - A Quake Live server administrator bot.
 # Copyright (C) 2015 Mino <mino@minomino.org>
 
 # This is a plugin created by iouonegirl(@gmail.com)
@@ -45,12 +61,9 @@ CP_MESS = "\n\n\nTeams are uneven. You will be forced to spec."
 # Options: spec, slay, ignore
 DEFAULT_LAST_ACTION = "spec"
 
-# Change this for other ratings
-DEFAULT_TYPE = "ca"
-
 # Use /elo_b/ for B-rankings (fun servers)
 # or /elo/ for A-rankings (standard servers)
-API_URL = "http://qlstats.net:8080/elo_b/{}"
+FUN_SERVER = True
 
 # Database Keys
 TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
@@ -65,6 +78,8 @@ EXCEPTIONS_FILE = "exceptions.txt"
 # Elo retrieval vars
 EXT_SUPPORTED_GAMETYPES = ("ca", "ctf", "dom", "ft", "tdm", "duel", "ffa")
 RATING_KEY = "minqlx:players:{0}:ratings:{1}" # 0 == steam_id, 1 == short gametype.
+API_URL = "http://qlstats.net:8080/elo/{}"
+if FUN_SERVER: API_URL = "http://qlstats.net:8080/elo_b/{}"
 MAX_ATTEMPTS = 3
 CACHE_EXPIRE = 60*30 # 30 minutes TTL.
 DEFAULT_RATING = 1000
@@ -311,7 +326,7 @@ class mybalance(minqlx.Plugin):
     def handle_player_connect(self, player):
         # If you are not an exception, you must be checked for elo limit
         if not (player.steam_id in self.exceptions):
-            self.fetch(player, DEFAULT_TYPE, self.callback)
+            self.fetch(player, self.game.short_type, self.callback)
 
         # Record their join times regardless
         self.jointimes[player.steam_id] = time.time()
@@ -625,10 +640,10 @@ class mybalance(minqlx.Plugin):
                     return callback(player, _gt["elo"], _gt["games"])
 
 
-        minqlx.CHAT_CHANNEL.reply("^7Problem fetching elo: " + last_status)
+        minqlx.console_command("echo Problem fetching elo: " + str(last_status))
         return
 
-    def callback_elo(self, player, elo, games):
+    def callback_elo(self, player, elo = 0, games=0):
         if type(player) in [str, int]:
             name = player
             sid = player
@@ -638,12 +653,12 @@ class mybalance(minqlx.Plugin):
 
         m = "{} ".format(name)
         elos = []
-        key = RATING_KEY.format(sid, DEFAULT_TYPE)
+        key = RATING_KEY.format(sid, self.game.type_short)
         if key in self.db:
             dbelo = int(self.db[key])
-            elos.append("^7local elo: ^6{}".format(dbelo))
-        if elo and games:
-            elos.append("^7qlstats.net elo: ^6{}".format(elo))
+            elos.append("^7local {} elo: ^6{}".format(self.game.type_short.upper(), dbelo))
+        #if elo and games:
+        elos.append("^7qlstats.net {} elo: ^6{} ({} games)".format(self.game.type_short.upper(), elo, games))
 
         if elos: minqlx.CHAT_CHANNEL.reply("^6{}".format(m) + " ^7, ".join(elos) + "^7.")
 
@@ -696,7 +711,7 @@ class mybalance(minqlx.Plugin):
                 fun(player)
             except: pass
 
-        key = RATING_KEY.format(player.steam_id, DEFAULT_TYPE)
+        key = RATING_KEY.format(player.steam_id, self.game.type_short)
         if (key in self.db):# and (int(self.db[key]) > elo):
             elo = int(self.db[key])
 
