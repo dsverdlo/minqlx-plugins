@@ -24,7 +24,7 @@ import os
 
 from minqlx.database import Redis
 
-VERSION = "v0.27"
+VERSION = "v0.28"
 
 ELO_MIN = 0 # default (and minimum elo) is 1000, so anything below that equals unrestricted
 ELO_MAX = 1600
@@ -45,6 +45,13 @@ CP_MESS = "\n\n\nTeams are uneven. You will be forced to spec."
 # Options: spec, slay, ignore
 DEFAULT_LAST_ACTION = "spec"
 
+# Change this for other ratings
+DEFAULT_TYPE = "ca"
+
+# Use /elo_b/ for B-rankings (fun servers)
+# or /elo/ for A-rankings (standard servers)
+API_URL = "http://qlstats.net:8080/elo_b/{}"
+
 # Database Keys
 TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 PLAYER_KEY = "minqlx:players:{}"
@@ -58,14 +65,11 @@ EXCEPTIONS_FILE = "exceptions.txt"
 # Elo retrieval vars
 EXT_SUPPORTED_GAMETYPES = ("ca", "ctf", "dom", "ft", "tdm", "duel", "ffa")
 RATING_KEY = "minqlx:players:{0}:ratings:{1}" # 0 == steam_id, 1 == short gametype.
-API_URL = "http://qlstats.net:8080/elo_b/{}"
 MAX_ATTEMPTS = 3
 CACHE_EXPIRE = 60*30 # 30 minutes TTL.
 DEFAULT_RATING = 1000
 SUPPORTED_GAMETYPES = ("ca", "ctf", "dom", "ft", "tdm")
 
-# Change this for other ratings
-DEFAULT_TYPE = "ca"
 
 class mybalance(minqlx.Plugin):
     def __init__(self):
@@ -106,11 +110,11 @@ class mybalance(minqlx.Plugin):
 
         try:
             balance = minqlx.Plugin._loaded_plugins['balance']
-            remove_commands = set('setrating', 'setelo', 'getrating', 'elo', 'remrating', 'remelo')
+            remove_commands = set(['setrating', 'getrating', 'remrating'])
             for cmd in balance.commands.copy():
                 if remove_commands.intersection(cmd.name):
                     balance.remove_command(cmd.name, cmd.handler)
-        except:
+        except Exception as e:
             pass
         self.add_command(("setrating", "setelo"), self.cmd_setrating, 3, usage="<id>|<name> <rating>")
         self.add_command(("getrating", "getelo", "elo"), self.cmd_getrating, usage="<id>|<name> [gametype]")
