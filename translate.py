@@ -137,6 +137,8 @@ class translate(minqlx.Plugin):
     def __init__(self):
         super().__init__()
         self.add_command(("v_translate", "v_translation"), self.cmd_version)
+        self.add_command("urban", self.cmd_urban, usage="<word>|<phrase>")
+        self.add_command("languages", self.cmd_languages)
         self.buffer = []
 
         try:
@@ -148,10 +150,8 @@ class translate(minqlx.Plugin):
         self.add_hook("chat", self.handle_chat)
         self.add_command("translate", self.cmd_translate, usage="<to> <sentence>")
         self.add_command(("define", "def", "definition"), self.cmd_define, usage="<word>")
-        self.add_command("urban", self.cmd_urban, usage="<word>|<phrase>")
         self.add_command(("lang", "language"), self.cmd_language, usage="[<tag>|<language>]")
         self.add_command(("autotrans", "autotranslate"), self.cmd_auto_translate)
-        self.add_command("languages", self.cmd_languages)
 
     def handle_chat(self, player, msg, channel):
         if not player: return
