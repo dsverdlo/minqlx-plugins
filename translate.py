@@ -21,7 +21,7 @@ import minqlx
 import threading
 import requests
 
-VERSION = "v0.2"
+VERSION = "v0.3"
 
 try:
     import textblob
@@ -148,7 +148,8 @@ class translate(minqlx.Plugin):
             return
 
         self.add_hook("chat", self.handle_chat)
-        self.add_command("translate", self.cmd_translate, usage="<to> <sentence>")
+        self.add_command(("translate", "trans"), self.cmd_translate, usage="<to> <query>")
+        self.add_command(("stranslate", "strans"), self.cmd_silent_translate, usage="<to> <query>")
         self.add_command(("define", "def", "definition"), self.cmd_define, usage="<word>")
         self.add_command(("lang", "language"), self.cmd_language, usage="[<tag>|<language>]")
         self.add_command(("autotrans", "autotranslate"), self.cmd_auto_translate)
@@ -215,8 +216,10 @@ class translate(minqlx.Plugin):
             threading.Thread(target=download_wordnet).start()
 
 
+    def cmd_silent_translate(self, player, msg, channel):
+        self.cmd_translate(self, player, msg, channel, True)
 
-    def cmd_translate(self, player, msg, channel):
+    def cmd_translate(self, player, msg, channel, silent=False):
         if len(msg) < 3:
             return minqlx.RET_USAGE
 
@@ -229,8 +232,12 @@ class translate(minqlx.Plugin):
         except Exception as e:
             translated = message
 
-        channel.reply("^7Translation: {}{}".format(C, translated))
-        return
+        output = "^7Translation: {}{}".format(C, translated)
+        if silent:
+            player.tell("^6Psst: " + output)
+            return minqlx.RET_STOP_ALL
+        channel.reply(output)
+
 
     @minqlx.delay(1)
     def help_textblob(self):
