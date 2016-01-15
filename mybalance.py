@@ -1,20 +1,4 @@
-﻿#-------------------------------------------------------------------------------
-# Name:        module1
-# Purpose:
-#
-# Author:      david
-#
-# Created:     14-01-2016
-# Copyright:   (c) david 2016
-# Licence:     <your licence>
-#-------------------------------------------------------------------------------
-
-def main():
-    pass
-
-if __name__ == '__main__':
-    main()
-# minqlx - A Quake Live server administrator bot.
+﻿# minqlx - A Quake Live server administrator bot.
 # Copyright (C) 2015 Mino <mino@minomino.org>
 
 # This is a plugin created by iouonegirl(@gmail.com)
@@ -40,7 +24,7 @@ import os
 
 from minqlx.database import Redis
 
-VERSION = "v0.29"
+VERSION = "v0.30"
 
 ELO_MIN = 0 # default (and minimum elo) is 1000, so anything below that equals unrestricted
 ELO_MAX = 1600
