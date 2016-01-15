@@ -27,6 +27,7 @@ The complete process of thoughts can be found in the 'handicap-thread' on the Bu
 - **mybalance**
 This plugin is designed to be used in alliance with Mino's balance plugin, but adds some more features, like elo-limits for connecting players, using the elo commands by name, and applying an action to the last person on uneven teams (slay, spec or ignore).
 Furthermore this plugin creates a text file in which exceptions can be placed for the elo restrictions, and adds a little bump to the elo restriction for regular players. 
+
 Usage/commands:
 !elokicked - view list of kicked people
 !add_exception - adds an exception to the exception list
@@ -39,6 +40,7 @@ An enhancement of roasticle's basic intermission plugin. This plugin will loop o
 
 - **centerprint**
 Provides a way to broadcast a message on everyone's screen, or just to individual people. Handy for important server announcements. Also shows a 'One enemy left' message on the screen if people want it. 
+
 Usage/commands:
 !showlast - toggle on/off if you want to see '1 enemy left' message (CA mode)
 !print - print a message to a person's screen
@@ -46,6 +48,7 @@ Usage/commands:
 
 - **player_info**
 Displays some more info about a player if the info command is used, and also provides a method to check a player's scoreboard information (in big CA matches people sometimes fall off / just below the scoreboard)
+
 Usage/commands:
 !info - display some information, like games played, quit frequency, elo
 !scoreboard - display scoreboard information
@@ -53,6 +56,7 @@ Usage/commands:
 
 - **translate**
 Provides methods to translate any words or sentences into another language, using the Google Translate API. Also able to look up normal english definitions and Urban Dictionaries definitions. There is also an automatic translation feature, which will automatically translate messages into your native or chosen language. **Important** Requires installation of the 'textblob' python library. Instructions are in the plugin comments
+
 Usage/commands
 !translate <tag> <sentence>
 !translate en Deze zin is vertaald geweest. -> Translation: This sentence has been translated.
