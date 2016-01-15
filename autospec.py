@@ -6,7 +6,7 @@
 import minqlx
 import time
 
-VERSION = "v0.8"
+VERSION = "v0.9"
 
 class autospec(minqlx.Plugin):
     def __init__(self):
@@ -72,7 +72,7 @@ class autospec(minqlx.Plugin):
 
         if (self.game.red_score + self.game.blue_score) >= 1:
 
-            minqlx.console_command("echo Picking someone to {} based on score".format(self.last_action))
+            minqlx.console_command("echo Picking someone to spec based on score")
             # Get the last person in that team
             lowest_players = [bigger_team[0]]
             for p in bigger_team:
@@ -87,7 +87,7 @@ class autospec(minqlx.Plugin):
 
         else:
 
-            minqlx.console_command("echo Picking someone to {} based on join times.".format(self.last_action))
+            minqlx.console_command("echo Picking someone to spec based on join times.")
             bigger_team.sort(key = lambda el: self.find_time(el), reverse=True)
             lowest_player = bigger_team[0]
 
