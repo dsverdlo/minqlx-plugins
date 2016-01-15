@@ -38,5 +38,5 @@ Provides a way to broadcast a message on everyone's screen, or just to individua
 Displays some more info about a player if the info command is used, and also provides a method to check a player's scoreboard information (in big CA matches people sometimes fall off / just below the scoreboard)
 
 - **translate**
-Provides methods to translate any words or sentences into another language, using the Google Translate API. Also able to look up normal english definitions and Urban Dictionaries definitions. There is also an automatic translation feature, which will automatically translate messages into your native or chosen language.
+Provides methods to translate any words or sentences into another language, using the Google Translate API. Also able to look up normal english definitions and Urban Dictionaries definitions. There is also an automatic translation feature, which will automatically translate messages into your native or chosen language. **Important** Requires installation of the 'textblob' python library. Instructions are in the plugin comments
 
