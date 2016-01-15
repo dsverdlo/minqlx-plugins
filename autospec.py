@@ -4,24 +4,42 @@
 # This is a plugin created by iouonegirl(@gmail.com)
 
 import minqlx
+import time
 
-VERSION = "v0.6"
+VERSION = "v0.8"
 
 class autospec(minqlx.Plugin):
     def __init__(self):
         super().__init__()
+
+        self.jointimes = {}
+
         self.add_hook("round_start", self.handle_round_start)
         self.add_command("v_autospec", self.cmd_version)
         self.add_hook("round_countdown", self.handle_round_count)
+        self.add_hook("player_connect", self.handle_player_connect)
+        self.add_hook("player_disconnect", self.handle_player_disconnect)
+
+    def handle_player_connect(self, player):
+        self.jointimes[player.steam_id] = time.time()
+
+    def handle_player_disconnect(self, player, reason):
+        if player.steam_id in self.jointimes:
+            del self.jointimes[player.steam_id]
+
+    def find_time(self, player):
+        if not (player.steam_id in self.jointimes):
+            self.jointimes[player.steam_id] = time.time()
+        return self.jointimes[player.steam_id]
 
     def handle_round_count(self, round_number):
         teams = self.teams()
         if (len(teams["red"] + teams["blue"]) % 2) == 0:
             return
-        
+
         lowest_player = self.help_get_last(teams)
         self.msg("Uneven teams detected! {} will be forced to spec!".format(lowest_player.name))
-        
+
     def handle_round_start(self, round_number):
         def is_even(n):
             return n % 2 == 0
@@ -48,14 +66,29 @@ class autospec(minqlx.Plugin):
     def help_get_last(self, teams):
         # See which team is bigger than the other
         if len(teams["red"]) < len(teams["blue"]):
-            bigger_team = teams["blue"]
+            bigger_team = teams["blue"].copy()
         else:
-            bigger_team = teams["red"]
+            bigger_team = teams["red"].copy()
 
-        # Get the last person in that team
-        lowest_player = bigger_team[0]
-        for p in bigger_team:
-            if p.stats.damage_dealt < lowest_player.stats.damage_dealt:
-                lowest_player = p
-        # Return player with lowest score
+        if (self.game.red_score + self.game.blue_score) >= 1:
+
+            minqlx.console_command("echo Picking someone to {} based on score".format(self.last_action))
+            # Get the last person in that team
+            lowest_players = [bigger_team[0]]
+            for p in bigger_team:
+                if p.stats.score < lowest_players[0].stats.score:
+                    lowest_players = [p]
+                elif p.stats.score == lowest_players[0].stats.score:
+                    lowest_players.append(p)
+
+            # Sort on joining times highest(newest) to lowest(oldest)
+            lowest_players.sort(key= lambda el: self.find_time(el), reverse=True )
+            lowest_player = lowest_players[0]
+
+        else:
+
+            minqlx.console_command("echo Picking someone to {} based on join times.".format(self.last_action))
+            bigger_team.sort(key = lambda el: self.find_time(el), reverse=True)
+            lowest_player = bigger_team[0]
+
         return lowest_player
