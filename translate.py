@@ -21,7 +21,7 @@ import minqlx
 import threading
 import requests
 
-VERSION = "v0.1"
+VERSION = "v0.2"
 
 try:
     import textblob
