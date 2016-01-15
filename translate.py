@@ -21,7 +21,7 @@ import minqlx
 import threading
 import requests
 
-VERSION = "v0.4"
+VERSION = "v0.5"
 
 try:
     import textblob
@@ -298,6 +298,7 @@ class translate(minqlx.Plugin):
                     lang, tag = maybe[0]
                     self.help_set_lang_tag(player, tag)
                     channel.reply("^7AutoTranslate language changed to: ^6{}^7({}).".format(lang, tag))
+                    self.help_change_auto_pref(player, 1)
                     return
                 else:
                     _map = map(lambda pair: "{}->{}".format(pair[0], pair[1]), maybe)
