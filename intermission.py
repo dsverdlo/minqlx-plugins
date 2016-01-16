@@ -9,11 +9,14 @@
 # after each match.
 #
 # Place the files in a PK3 file and upload it to a workshop.
+#
+# If you have trouble hearing the music, I heard Mino's
+# workshop.py plugin helps.
 
 
 import minqlx
 
-VERSION = "v0.6"
+VERSION = "v0.7"
 
 # These songs will be looped one by one
 SONGS = [
@@ -29,6 +32,7 @@ class intermission(minqlx.Plugin):
         self.add_hook("game_end", self.handle_game_end)
         self.add_command("v_intermission", self.cmd_version)
 
+    @minqlx.delay(0.3)
     def handle_game_end(self, *args, **kwargs):
 
         # If there are no songs defined, return
