@@ -1,17 +1,17 @@
-# minqlx - A Quake Live server administrator bot.
-# Copyright (C) 2015 Mino <mino@minomino.org>
-
 # This is a plugin created by iouonegirl(@gmail.com)
+# Copyright (c) 2016 iouonegirl
+# https://github.com/dsverdlo/minqlx-plugins
 #
-# It provides a method to print something in the center of a player's screen,
-# and a toggle command to view when there is only one enemy left
+# It provides a method to !print something in the center of a player's screen,
+# or !broadcast it over the whole server (print on everybody's screen)
+# and a toggle command (!showlast) to view when there is only one enemy left
 
 import minqlx
 import datetime
 import time
 import re
 
-VERSION = "v0.3"
+VERSION = "v0.4"
 PLAYER_KEY = "minqlx:players:{}"
 NOTIFY_LAST_KEY = PLAYER_KEY + ":notifylast"
 

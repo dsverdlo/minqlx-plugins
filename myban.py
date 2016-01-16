@@ -16,17 +16,19 @@
 # You should have received a copy of the GNU General Public License
 # along with minqlx. If not, see <http://www.gnu.org/licenses/>.
 
-# Edited by iouonegirl(@gmail.com) to also take names as arguments
+# Edited by iouonegirl(@gmail.com) so that commands also take names
+# as arguments, instead of ID's only.
+
 import minqlx
 import datetime
 import time
 import re
 
-VERSION = "v0.8"
-
 LENGTH_REGEX = re.compile(r"(?P<number>[0-9]+) (?P<scale>seconds?|minutes?|hours?|days?|weeks?|months?|years?)")
 TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 PLAYER_KEY = "minqlx:players:{}"
+
+VERSION = "v0.9"
 
 class myban(minqlx.Plugin):
     def __init__(self):
@@ -38,11 +40,11 @@ class myban(minqlx.Plugin):
         self.add_hook("game_start", self.handle_game_start)
         self.add_hook("game_end", self.handle_game_end)
         self.add_hook("team_switch", self.handle_team_switch)
-        self.add_command("ban", self.cmd_ban, 2, usage="<id>|<name> <length> seconds|minutes|hours|days|... [reason]")
-        self.add_command("unban", self.cmd_unban, 2, usage="<id>|<name>")
-        self.add_command("checkban", self.cmd_checkban, usage="<id>|<name>")
-        self.add_command("forgive", self.cmd_forgive, 2, usage="<id>|<name> [leaves_to_forgive]")
-        self.add_command(("v_myban", "version_myban"), self.cmd_version)
+        self.add_command("ban", self.cmd_ban, 2, usage="<id> <length> seconds|minutes|hours|days|... [reason]")
+        self.add_command("unban", self.cmd_unban, 2, usage="<id>")
+        self.add_command("checkban", self.cmd_checkban, usage="<id>")
+        self.add_command("forgive", self.cmd_forgive, 2, usage="<id> [leaves_to_forgive]")
+        self.add_command("v_myban", self.cmd_version)
 
         # Cvars.
         self.set_cvar_once("qlx_leaverBan", "0")
@@ -53,10 +55,6 @@ class myban(minqlx.Plugin):
         # List of players playing that could potentially be considered leavers.
         self.players_start = []
         self.pending_warnings = {}
-
-    def cmd_version(self, player, msg, channel):
-        plugin = self.__class__.__name__
-        channel.reply("^7Currently using ^3iou^7one^4girl^7's ^6{}^7 plugin version ^6{}^7.".format(plugin, VERSION))
 
     def handle_player_connect(self, player):
         status = self.leave_status(player.steam_id)
@@ -90,18 +88,25 @@ class myban(minqlx.Plugin):
     def handle_player_disconnect(self, player, reason):
         # Allow people to disconnect without getting a leave if teams are uneven.
         teams = self.teams()
-        if len(teams["red"] + teams["blue"]) % 2 == 0 and player in self.players_start:
+        if len(teams["red"] + teams["blue"]) % 2 != 0 and player in self.players_start:
             self.players_start.remove(player)
 
     def handle_game_countdown(self):
         if self.get_cvar("qlx_leaverBan", bool):
             self.msg("Leavers are being kept track of. Repeat offenders ^6will^7 be banned.")
 
+    # Needs a delay here because players will sometimes have their teams reset during the event.
+    # TODO: Proper fix to self.teams() in game_start.
+    @minqlx.delay(1)
     def handle_game_start(self, game):
         teams = self.teams()
         self.players_start = teams["red"] + teams["blue"]
 
     def handle_game_end(self, data):
+        if data["ABORTED"]:
+            self.players_start = []
+            return
+
         teams = self.teams()
         players_end = teams["red"] + teams["blue"]
         leavers = []
@@ -147,15 +152,21 @@ class myban(minqlx.Plugin):
 
         try:
             ident = int(msg[1])
-            assert len(msg[1]) == 17
-            name = ident
-        except:
-            target_player = self.find_by_name_or_id(player, msg[1])
-            if not target_player:
-                return minqlx.RET_STOP_ALL
+            target_player = None
+            if 0 <= ident < 64:
+                target_player = self.player(ident)
+                ident = target_player.steam_id
+        except ValueError:
+            channel.reply("Invalid ID. Use either a client ID or a SteamID64.")
+            return
+        except minqlx.NonexistentPlayerError:
+            channel.reply("Invalid client ID. Use either a client ID or a SteamID64.")
+            return
 
-            ident = target_player.steam_id
+        if target_player:
             name = target_player.name
+        else:
+            name = ident
 
         # Permission level 5 players not bannable.
         if self.db.has_permission(ident, 5):
@@ -211,14 +222,21 @@ class myban(minqlx.Plugin):
 
         try:
             ident = int(msg[1])
-            assert len(msg[1]) == 17
-            name = ident
-        except:
-            target_player = self.find_by_name_or_id(player, msg[1])
-            if not target_player:
-                return minqlx.RET_STOP_ALL
-            ident = target_player.steam_id
+            target_player = None
+            if 0 <= ident < 64:
+                target_player = self.player(ident)
+                ident = target_player.steam_id
+        except ValueError:
+            channel.reply("Invalid ID. Use either a client ID or a SteamID64.")
+            return
+        except minqlx.NonexistentPlayerError:
+            channel.reply("Invalid client ID. Use either a client ID or a SteamID64.")
+            return
+
+        if target_player:
             name = target_player.name
+        else:
+            name = ident
 
         base_key = PLAYER_KEY.format(ident) + ":bans"
         bans = self.db.zrangebyscore(base_key, time.time(), "+inf", withscores=True)
@@ -238,15 +256,21 @@ class myban(minqlx.Plugin):
 
         try:
             ident = int(msg[1])
-            assert len(msg[1]) == 17
-            name = ident
-        except:
-            target_player = self.find_by_name_or_id(player, msg[1])
-            if not target_player:
-                return minqlx.RET_STOP_ALL
+            target_player = None
+            if 0 <= ident < 64:
+                target_player = self.player(ident)
+                ident = target_player.steam_id
+        except ValueError:
+            channel.reply("Invalid ID. Use either a client ID or a SteamID64.")
+            return
+        except minqlx.NonexistentPlayerError:
+            channel.reply("Invalid client ID. Use either a client ID or a SteamID64.")
+            return
 
-            ident = target_player.steam_id
+        if target_player:
             name = target_player.name
+        else:
+            name = ident
 
         # Check manual bans first.
         res = self.is_banned(ident)
@@ -272,15 +296,21 @@ class myban(minqlx.Plugin):
 
         try:
             ident = int(msg[1])
-            assert len(msg[1]) == 17
-            name = ident
-        except:
-            target_player = self.find_by_name_or_id(player, msg[1])
-            if not target_player:
-                return minqlx.RET_STOP_ALL
+            target_player = None
+            if 0 <= ident < 64:
+                target_player = self.player(ident)
+                ident = target_player.steam_id
+        except ValueError:
+            channel.reply("Invalid ID. Use either a client ID or a SteamID64.")
+            return
+        except minqlx.NonexistentPlayerError:
+            channel.reply("Invalid client ID. Use either a client ID or a SteamID64.")
+            return
 
-            ident = target_player.steam_id
+        if target_player:
             name = target_player.name
+        else:
+            name = ident
 
         base_key = PLAYER_KEY.format(ident)
         if base_key not in self.db:
@@ -335,15 +365,14 @@ class myban(minqlx.Plugin):
         if not self.get_cvar("qlx_leaverBan", bool):
             return None
 
-        key = PLAYER_KEY.format(steam_id) + ":games_completed"
-        completed = None if not key in self.db else self.db[key]
-        key = PLAYER_KEY.format(steam_id) + ":games_left"
-        left = None if not key in self.db else self.db[key]
-        if completed == None or left == None:
+        try:
+            completed = self.db[PLAYER_KEY.format(steam_id) + ":games_completed"]
+            left = self.db[PLAYER_KEY.format(steam_id) + ":games_left"]
+        except KeyError:
             return None
-        else:
-            completed = int(completed)
-            left = int(left)
+
+        completed = int(completed)
+        left = int(left)
 
         min_games_completed = self.get_cvar("qlx_leaverBanMinimumGames", int)
         warn_threshold = self.get_cvar("qlx_leaverBanWarnThreshold", float)
@@ -367,43 +396,16 @@ class myban(minqlx.Plugin):
         else:
             action = None
 
-        return (action, ratio)
+        return action, ratio
 
     def warn_player(self, player, ratio):
-        player.tell("^7You have only completed ^6{}^7％ of your games.".format(round(ratio * 100, 1)))
+        player.tell("^7You have only completed ^6{}^7 percent of your games.".format(round(ratio * 100, 1)))
         player.tell("^7If you keep leaving you ^6will^7 be banned.")
 
-    def execute_on_player(self, player, target):
-        """ Finds a player on the server and executes a lambda on him.
-            If 0 or multiple players are found, tell the caller. """
-        def find_players(query):
-            players = []
-            for p in self.find_player(query):
-                if p not in players:
-                    players.append(p)
-            return players
-        def list_alternatives(players, indent=2):
-            out = ""
-            for p in players:
-                out += " " * indent
-                out += "{}^6:^7 {}\n".format(p.id, p.name)
-            player.tell(out[:-1])
+    def cmd_version(self, player, msg, channel):
+        plugin = self.__class__.__name__
+        channel.reply("^7Currently using ^3iou^7one^4girl^7's ^6{}^7 plugin version ^6{}^7.".format(plugin, VERSION))
 
-        player_list = self.players()
-        if not player_list:
-            player.tell("There are no players connected at the moment.")
-
-        else:
-            players = find_players(target)
-            if players:
-                if len(players) == 1:
-                    return players[0]
-                else:
-                    player.tell("A total of ^6{}^7 players matched:".format(len(players)))
-                    list_alternatives(players)
-            else:
-                player.tell("Sorry, but no players matched your tokens.")
-        return None
 
     def find_by_name_or_id(self, player, target):
         # Find players returns a list of name-matching players
@@ -437,7 +439,7 @@ class myban(minqlx.Plugin):
             # Add the found ID if the player was not already found
             if not target_player in target_players:
                 target_players.append(target_player)
-        except:
+        except ValueError:
             pass
 
         # If there were absolutely no matches

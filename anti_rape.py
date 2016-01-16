@@ -1,7 +1,6 @@
-﻿# minqlx - A Quake Live server administrator bot.
-# Copyright (C) 2015 Mino <mino@minomino.org>
-
-# This is a plugin created by iouonegirl(@gmail.com)
+﻿# This is a plugin created by iouonegirl(@gmail.com)
+# Copyright (c) 2016 iouonegirl
+# https://github.com/dsverdlo/minqlx-plugins
 #
 # Its purpose is to detect rapers and give them fair handicaps.
 # The detection rules have been intensely discussed and finetuned,
@@ -19,7 +18,7 @@ import datetime
 import threading
 from math import floor
 
-VERSION = "v0.43"
+VERSION = "v0.44"
 
 
 # From which percentage we classify a rape.

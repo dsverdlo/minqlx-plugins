@@ -1,7 +1,6 @@
-# minqlx - A Quake Live server administrator bot.
-# Copyright (C) 2015 Mino <mino@minomino.org>
-
 # This is a plugin created by iouonegirl(@gmail.com)
+# Copyright (c) 2016 iouonegirl
+# https://github.com/dsverdlo/minqlx-plugins
 #
 # It tracksprovides commands to translate words and sentences,
 # look up definitions, and provide autotranslation to personal
@@ -21,7 +20,7 @@ import minqlx
 import threading
 import requests
 
-VERSION = "v0.5"
+VERSION = "v0.7"
 
 try:
     import textblob
@@ -138,6 +137,7 @@ class translate(minqlx.Plugin):
         super().__init__()
         self.add_command(("v_translate", "v_translation"), self.cmd_version)
         self.add_command("urban", self.cmd_urban, usage="<word>|<phrase>")
+        self.add_command(("leet", "1337", "l33t"), self.cmd_leet, usage="<word>|<phrase>")
         self.add_command("languages", self.cmd_languages)
         self.buffer = []
 
@@ -308,7 +308,7 @@ class translate(minqlx.Plugin):
 
 
     def cmd_languages(self, player, msg, channel):
-        _printable = map(lambda key: "^5{}^7({})".format(key, LANGS[key]), LANGS)
+        _printable = map(lambda key: "^5{}^7({})".format(key, LANGS[key]), sorted(LANGS))
         player.tell("^6Supported languages: ^5" + ", ".join(list(_printable)))
         channel.reply("^7{} can open their console to see all the supported languages.".format(player.name))
 
@@ -329,21 +329,31 @@ class translate(minqlx.Plugin):
         if len(msg) < 2:
             return minqlx.RET_USAGE
 
-        self.help_fetch_urban(" ".join(msg[1:]))
-
-    @minqlx.thread
-    def help_fetch_urban(self, term):
-        url = 'https://mashape-community-urban-dictionary.p.mashape.com/define?term={}'.format(term)
+        query = " ".join(msg[1:])
+        url = 'https://mashape-community-urban-dictionary.p.mashape.com/define?term={}'.format(query)
         headers =  { "X-Mashape-Key": "CAwrPAMPB6msh3K3YsRflDE0hmswp14vd4tjsnwbD5rMUVQWvo" }
 
+        self.help_fetch(player, query, url, headers, self.help_callback_urban)
+
+    def cmd_leet(self, player, msg, channel):
+        if len(msg)< 2:
+            return minqlx.RET_USAGE
+        query = "+".join(msg[1:])
+        url = 'https://montanaflynn-l33t-sp34k.p.mashape.com/encode?text={}'.format(query)
+        headers =  { "X-Mashape-Key": "CAwrPAMPB6msh3K3YsRflDE0hmswp14vd4tjsnwbD5rMUVQWvo" }
+        self.help_fetch(player, query, url, headers, self.help_callback_leet)
+        return minqlx.RET_STOP_ALL
+
+    @minqlx.thread
+    def help_fetch(self, player, query, url, headers, callback):
         res = requests.get(url, headers=headers)
         if res.status_code != requests.codes.ok:
-            self.msg("^1UrbanError^7: code {}.".format(res.status_code))
+            self.msg("^1RequestError^7: code {}.".format(res.status_code))
             return
+        callback(player, query, res)
 
-        self.help_callback_urban(res.json())
-
-    def help_callback_urban(self, results):
+    def help_callback_urban(self, player, query, results):
+        results = results.json()
         if results['result_type'] != "no_results":
             first_result = results['list'][0]
             definition = first_result['definition']
@@ -351,7 +361,11 @@ class translate(minqlx.Plugin):
             self.msg("^5UrbanDef: ^7{}".format(definition))
             if example:
                 self.help_delay_msg("^5UrbanExample: ^7{}".format(example))
+        else:
+            self.msg("{}No urban dict results found for: ".format(C, query))
 
+    def help_callback_leet(self, player, query, results):
+        self.msg("{}^7: ^2(!leet) {}".format(player.name, results))
 
     def help_get_auto_pref(self, player):
         key = AUTO_KEY.format(player.steam_id)

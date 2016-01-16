@@ -1,7 +1,6 @@
-﻿# minqlx - A Quake Live server administrator bot.
-# Copyright (C) 2015 Mino <mino@minomino.org>
-
-# This is a plugin created by iouonegirl(@gmail.com)
+﻿# This is a plugin created by iouonegirl(@gmail.com)
+# Copyright (c) 2016 iouonegirl
+# https://github.com/dsverdlo/minqlx-plugins
 #
 # Its purpose is to display some information about the players.
 # When players fall off the scoreboard, they are now also able
@@ -11,7 +10,7 @@
 import minqlx
 import requests
 
-VERSION = "v0.16"
+VERSION = "v0.17"
 
 # Fun server --> get B rankings
 FUN_SERVER = True
@@ -82,58 +81,56 @@ class player_info(minqlx.Plugin):
         # go fetch his elo
         self.fetch(target_player, None)
 
-
-    # Show a player's stats (intended
+    # Show info of people fallen off the scoreboard
     def cmd_scoreboard(self, player, msg, channel):
-        if len(msg) < 2:
-            target = player
-            silent = False
-        elif len(msg) < 3 and msg[1] == "silent":
-            target = player
-            silent = True
-        elif len(msg) < 3:
-            target = self.find_by_name_or_id(player, msg[1])
-            if not target:
-                return minqlx.RET_STOP_ALL
-            silent = False
-        elif len(msg) < 4 and msg[2] == "silent":
-            target = self.find_by_name_or_id(player, msg[1])
-            if not target:
-                return minqlx.RET_STOP_ALL
-            silent = True
-        else:
-            return minqlx.RET_USAGE
+        def show(target):
+            _n = target.name
+            _s = target.stats.score
+            _k = target.stats.kills
+            _d = target.stats.deaths
+            try:
+                _p = target.stats.ping
+            except:
+                _p = "--" # in case of older minqlx version
 
-        _n = target.name
-        _s = target.stats.score
-        _k = target.stats.kills
-        _d = target.stats.deaths
-        try:
-            _p = target.stats.ping
-        except:
-            _p = "--" # in case of older minqlx version
-
-        _tm = int(target.stats.time / 60000 )
-        _ts = int((target.stats.time % 60000) / 1000)
-        _dd = target.stats.damage_dealt
-        _t = target.team
-        _hc = int(target.cvars.get('handicap', 100))
-        _c = '^7,'
-        if _t == 'blue': _c = '^4,'
-        if _t == 'red': _c = '^1,'
-        if _hc < 100:
-            _hc = '^7(^3{}％^7)'.format(_hc)
-        else:
-            _hc = ''
+            _tm = int(target.stats.time / 60000 )
+            _ts = int((target.stats.time % 60000) / 1000)
+            _dd = target.stats.damage_dealt
+            _t = target.team
+            _hc = int(target.cvars.get('handicap', 100))
+            _c = '^7,'
+            if _t == 'blue': _c = '^4,'
+            if _t == 'red': _c = '^1,'
+            if _hc < 100:
+                _hc = '^7(^3{}％^7)'.format(_hc)
+            else:
+                _hc = ''
 
 
-        message = "{}{} ^3score ^7{}{c} ^3k/d ^7{}/{}{c} ^3dmg ^7{}{c} ^3time ^7{}m{}s{c} ^3ping ^7{} "
-        message = message.format(_n, _hc, _s, _k, _d, _dd, _tm, _ts, _p, c=_c)
-        if silent:
-            player.tell("^6Psst: ^7" + message)
-            return minqlx.RET_STOP_ALL
-        else:
+            message = "{}{} {k}score ^7{}{c} {k}k/d ^7{}/{}{c} {k}dmg ^7{}{c} {k}time ^7{}m{}s{c} {k}ping ^7{} "
+            message = message.format(_n, _hc, _s, _k, _d, _dd, _tm, _ts, _p, c=_c, k=_c[0:-1])
             channel.reply("^7" + message)
+
+        teams = self.teams()
+        scoreboard_length = 8
+
+        players = []
+        if len(teams['red']) > scoreboard_length:
+            sorted_red = sorted(teams["red"], key=lambda p: p.score, reverse=True)
+            for p in sorted_red[scoreboard_length:]:
+                players.append(p)
+        if len(teams['blue']) > scoreboard_length:
+            sorted_blue = sorted(teams['blue'], key=lambda p: p.score, reverse=True)
+            for p in sorted_blue[scoreboard_length:]:
+                players.append(p)
+
+        if not players:
+            channel.reply("^7No players falling off the scoreboard...")
+            return
+
+        for p in players:
+            show(p)
+
 
 
 

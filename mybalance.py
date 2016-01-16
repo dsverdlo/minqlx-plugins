@@ -1,7 +1,6 @@
-﻿# minqlx - A Quake Live server administrator bot.
-# Copyright (C) 2015 Mino <mino@minomino.org>
-
-# This is a plugin created by iouonegirl(@gmail.com)
+﻿# This is a plugin created by iouonegirl(@gmail.com)
+# Copyright (c) 2016 iouonegirl
+# https://github.com/dsverdlo/minqlx-plugins
 #
 # Its purpose is to balance the teams out. For now we don't
 # have ways to compare players, so that might be added later
@@ -24,7 +23,7 @@ import os
 
 from minqlx.database import Redis
 
-VERSION = "v0.30"
+VERSION = "v0.31"
 
 ELO_MIN = 0 # default (and minimum elo) is 1000, so anything below that equals unrestricted
 ELO_MAX = 1600
@@ -94,8 +93,8 @@ class mybalance(minqlx.Plugin):
 
         self.add_command("prevent", self.cmd_prevent_last, 2)
         self.add_command("last", self.cmd_last_action, 2, usage="[SLAY|SPEC|IGNORE]")
-        self.add_command("load_exceptions", self.cmd_help_load_exceptions, 5)
-        self.add_command("add_exception", self.cmd_add_exception, 5, usage="<name>|<steam_id> <name>")
+        self.add_command(("load_exceptions", "reload_exceptions"), self.cmd_help_load_exceptions, 3)
+        self.add_command("add_exception", self.cmd_add_exception, 3, usage="<name>|<steam_id> <name>")
         self.add_command("elokicked", self.cmd_elo_kicked)
         self.add_command("remkicked", self.cmd_rem_kicked, 2, usage="<id>")
         self.add_command(("nokick", "dontkick"), self.cmd_nokick, 2, usage="[<name>]")
@@ -277,6 +276,7 @@ class mybalance(minqlx.Plugin):
                 for line in file:
                     n += 1
                     sid, name = line.split(" ")
+                    if sid.startswith("#"): continue # comment lines
                     try:
                         excps.append(int(sid))
                         if player:
@@ -292,7 +292,10 @@ class mybalance(minqlx.Plugin):
             try:
                 script_dir = os.path.dirname(__file__) #<-- absolute dir the script is in
                 abs_file_path = os.path.join(script_dir, EXCEPTIONS_FILE)
-                with open(abs_file_path,"a+") as f: pass
+                with open(abs_file_path,"a+") as f:
+                    f.write("# This is a commented line because it starts with a '#'\n")
+                    f.write("# Every exception on a newline, format: STEAMID NAME\n")
+                    f.write("76561198045154609 iouonegirl\n")
                 minqlx.CHAT_CHANNEL.reply("^6mybalance plugin^7: No exception list found, so I made one myself.")
             except:
                 minqlx.CHAT_CHANNEL.reply("^1Error: ^7reading and creating exception list: {}".format(e))
@@ -346,6 +349,10 @@ class mybalance(minqlx.Plugin):
         teams = self.teams()
         if self.is_even(len(teams["red"] + teams["blue"])):
             return minqlx.RET_STOP_EVENT
+
+        # If it is the last player, don't do this and let the game finish normally
+        if len(teams["red"] + teams["blue"]) == 1:
+            return
 
         # Get last person
         lowest_player = self.algo_get_last()
