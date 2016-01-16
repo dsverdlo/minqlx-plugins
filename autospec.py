@@ -1,12 +1,13 @@
-# minqlx - A Quake Live server administrator bot.
-# Copyright (C) 2015 Mino <mino@minomino.org>
-
 # This is a plugin created by iouonegirl(@gmail.com)
+# Copyright (c) 2016 iouonegirl
+# https://github.com/dsverdlo/minqlx-plugins
+#
+# It's purpose if to force the last player to spectate
 
 import minqlx
 import time
 
-VERSION = "v0.9"
+VERSION = "v0.10"
 
 class autospec(minqlx.Plugin):
     def __init__(self):
@@ -50,6 +51,10 @@ class autospec(minqlx.Plugin):
         # If teams are even, just return
         if is_even(len(teams["red"] + teams["blue"])):
             return minqlx.RET_STOP_EVENT
+
+        # If it is the last player, don't do this and let the game finish normally
+        if len(teams["red"] + teams["blue"]) == 1:
+            return
 
         # Get last person
         lowest_player = self.help_get_last(teams)
