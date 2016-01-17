@@ -28,7 +28,7 @@ LENGTH_REGEX = re.compile(r"(?P<number>[0-9]+) (?P<scale>seconds?|minutes?|hours
 TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 PLAYER_KEY = "minqlx:players:{}"
 
-VERSION = "v0.9"
+VERSION = "v0.10"
 
 class myban(minqlx.Plugin):
     def __init__(self):
@@ -152,21 +152,15 @@ class myban(minqlx.Plugin):
 
         try:
             ident = int(msg[1])
-            target_player = None
-            if 0 <= ident < 64:
-                target_player = self.player(ident)
-                ident = target_player.steam_id
-        except ValueError:
-            channel.reply("Invalid ID. Use either a client ID or a SteamID64.")
-            return
-        except minqlx.NonexistentPlayerError:
-            channel.reply("Invalid client ID. Use either a client ID or a SteamID64.")
-            return
-
-        if target_player:
-            name = target_player.name
-        else:
+            assert len(msg[1]) == 17
             name = ident
+        except:
+            target_player = self.find_by_name_or_id(player, msg[1])
+            if not target_player:
+                return minqlx.RET_STOP_ALL
+
+            ident = target_player.steam_id
+            name = target_player.name
 
         # Permission level 5 players not bannable.
         if self.db.has_permission(ident, 5):
@@ -222,21 +216,14 @@ class myban(minqlx.Plugin):
 
         try:
             ident = int(msg[1])
-            target_player = None
-            if 0 <= ident < 64:
-                target_player = self.player(ident)
-                ident = target_player.steam_id
-        except ValueError:
-            channel.reply("Invalid ID. Use either a client ID or a SteamID64.")
-            return
-        except minqlx.NonexistentPlayerError:
-            channel.reply("Invalid client ID. Use either a client ID or a SteamID64.")
-            return
-
-        if target_player:
-            name = target_player.name
-        else:
+            assert len(msg[1]) == 17
             name = ident
+        except:
+            target_player = self.find_by_name_or_id(player, msg[1])
+            if not target_player:
+                return minqlx.RET_STOP_ALL
+            ident = target_player.steam_id
+            name = target_player.name
 
         base_key = PLAYER_KEY.format(ident) + ":bans"
         bans = self.db.zrangebyscore(base_key, time.time(), "+inf", withscores=True)
@@ -256,21 +243,14 @@ class myban(minqlx.Plugin):
 
         try:
             ident = int(msg[1])
-            target_player = None
-            if 0 <= ident < 64:
-                target_player = self.player(ident)
-                ident = target_player.steam_id
-        except ValueError:
-            channel.reply("Invalid ID. Use either a client ID or a SteamID64.")
-            return
-        except minqlx.NonexistentPlayerError:
-            channel.reply("Invalid client ID. Use either a client ID or a SteamID64.")
-            return
-
-        if target_player:
-            name = target_player.name
-        else:
+            assert len(msg[1]) == 17
             name = ident
+        except:
+            target_player = self.find_by_name_or_id(player, msg[1])
+            if not target_player:
+                return minqlx.RET_STOP_ALL
+            ident = target_player.steam_id
+            name = target_player.name
 
         # Check manual bans first.
         res = self.is_banned(ident)
@@ -296,21 +276,15 @@ class myban(minqlx.Plugin):
 
         try:
             ident = int(msg[1])
-            target_player = None
-            if 0 <= ident < 64:
-                target_player = self.player(ident)
-                ident = target_player.steam_id
-        except ValueError:
-            channel.reply("Invalid ID. Use either a client ID or a SteamID64.")
-            return
-        except minqlx.NonexistentPlayerError:
-            channel.reply("Invalid client ID. Use either a client ID or a SteamID64.")
-            return
-
-        if target_player:
-            name = target_player.name
-        else:
+            assert len(msg[1]) == 17
             name = ident
+        except:
+            target_player = self.find_by_name_or_id(player, msg[1])
+            if not target_player:
+                return minqlx.RET_STOP_ALL
+
+            ident = target_player.steam_id
+            name = target_player.name
 
         base_key = PLAYER_KEY.format(ident)
         if base_key not in self.db:
