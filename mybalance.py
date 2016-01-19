@@ -23,7 +23,7 @@ import os
 
 from minqlx.database import Redis
 
-VERSION = "v0.31"
+VERSION = "v0.32"
 
 ELO_MIN = 0 # default (and minimum elo) is 1000, so anything below that equals unrestricted
 ELO_MAX = 1600
@@ -242,8 +242,8 @@ class mybalance(minqlx.Plugin):
                 for line in file:
                     sid, name = line.split(" ")
                     if int(sid) == add_sid:
-                        channel.reply("^7This ID is already in the exception list under name ^6{}^7!".format(name))
-                        return
+                        player.tell("^6Psst: ^7This ID is already in the exception list under name ^6{}^7!".format(name))
+                        return minqlx.RET_STOP_ALL
 
             with open (abs_file_path, "a") as file:
                 file.write("{} {}\n".format(add_sid, add_nam))
@@ -252,17 +252,18 @@ class mybalance(minqlx.Plugin):
                 self.exceptions.append(add_sid)
             if add_sid in self.kicked:
                 del self.kicked[add_sid]
-            channel.reply("^2Succesfully ^7added ^6{} ^7to the exception list.".format(add_nam))
-            return
+            player.tell("^6Psst: ^2Succesfully ^7added ^6{} ^7to the exception list.".format(add_nam))
+            return minqlx.RET_STOP_ALL
 
         except IOError as e:
-            channel.reply("^1IOError: ^7{}".format(e))
+            player.tell("^6Psst: IOError: ^7{}".format(e))
 
         except ValueError as e:
             return minqlx.RET_USAGE
 
         except Exception as e:
-            channel.reply("^1Error: ^7{}".format(e))
+            player.tell("^6Psst: ^1Error: ^7{}".format(e))
+        return minqlx.RET_STOP_ALL
 
 
     # Load a list of exceptions
@@ -275,8 +276,8 @@ class mybalance(minqlx.Plugin):
                 n = 0
                 for line in file:
                     n += 1
+                    if line.startswith("#"): continue # comment lines
                     sid, name = line.split(" ")
-                    if sid.startswith("#"): continue # comment lines
                     try:
                         excps.append(int(sid))
                         if player:
@@ -313,7 +314,7 @@ class mybalance(minqlx.Plugin):
     def handle_player_connect(self, player):
         # If you are not an exception, you must be checked for elo limit
         if not (player.steam_id in self.exceptions):
-            self.fetch(player, self.game.short_type, self.callback)
+            self.fetch(player, self.game.type_short, self.callback)
 
         # Record their join times regardless
         self.jointimes[player.steam_id] = time.time()
