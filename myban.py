@@ -28,11 +28,17 @@ LENGTH_REGEX = re.compile(r"(?P<number>[0-9]+) (?P<scale>seconds?|minutes?|hours
 TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 PLAYER_KEY = "minqlx:players:{}"
 
-VERSION = "v0.10"
+VERSION = "v0.11"
 
 class myban(minqlx.Plugin):
     def __init__(self):
         super().__init__()
+
+        try:
+            minqlx.unload_plugin('ban')
+        except Exception as e:
+            pass
+
         self.add_hook("player_connect", self.handle_player_connect, priority=minqlx.PRI_HIGH)
         self.add_hook("player_loaded", self.handle_player_loaded)
         self.add_hook("player_disconnect", self.handle_player_disconnect)

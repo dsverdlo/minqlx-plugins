@@ -34,13 +34,19 @@ from collections import deque
 DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 TIME_FORMAT = "%H:%M:%S"
 
-VERSION = "v0.6"
+VERSION = "v0.7"
 
 class myessentials(minqlx.Plugin):
     database = minqlx.database.Redis
 
     def __init__(self):
         super().__init__()
+
+        try:
+            minqlx.unload_plugin('essentials')
+        except Exception as e:
+            pass
+
         self.add_hook("player_connect", self.handle_player_connect)
         self.add_hook("player_disconnect", self.handle_player_disconnect)
         self.add_hook("vote_called", self.handle_vote_called)
