@@ -6,7 +6,7 @@
 
 import minqlx
 
-VERSION = "v0.2"
+VERSION = "v0.3"
 
 
 class disable_map_votes(minqlx.Plugin):
