@@ -20,7 +20,7 @@ class disable_map_votes(minqlx.Plugin):
         channel.reply("^7Currently using ^3iou^7one^4girl^7's ^6{}^7 plugin version ^6{}^7.".format(plugin, VERSION))
 
     def handle_vote(self, player, vote, args):
-        @delay(1)
+        @minqlx.delay(1)
         def veto_no():
             self.force_vote(False)
 
