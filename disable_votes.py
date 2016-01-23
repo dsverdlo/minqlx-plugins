@@ -2,36 +2,34 @@
 # Copyright (c) 2016 iouonegirl
 # https://github.com/dsverdlo/minqlx-plugins
 #
-# This plugin disables mapvotes mid-game
+# This plugin disables certain votes during a game
 
 import minqlx
 
-VERSION = "v0.4"
+VERSION = "v0.5"
 
+DISABLE_VOTES = {
+    'map': '^1You are not allowed to callvote maps during a match!',
+    'teamsize': '^1You are not allowed to change the teamsize during a match!'
+    }
 
-class disable_map_votes(minqlx.Plugin):
+class disable_votes(minqlx.Plugin):
 
     def __init__(self):
         self.add_hook("vote_called", self.handle_vote)
-        self.add_command("v_disable_map_votes", self.cmd_version)
+        self.add_command("v_disable_votes", self.cmd_version)
 
     def cmd_version(self, player, msg, channel):
         plugin = self.__class__.__name__
         channel.reply("^7Currently using ^3iou^7one^4girl^7's ^6{}^7 plugin version ^6{}^7.".format(plugin, VERSION))
 
     def handle_vote(self, player, vote, args):
-        @minqlx.delay(0.8)
-        def veto_no():
-            self.force_vote(False)
 
         if self.game.state != "in_progress": return
 
-        if vote == "map":
-            self.msg("^1You cannot callvote map during a game. Try /callvote map_restart.")
-            veto_no()
-
-        if vote == "teamsize":
-            self.msg("^1Can't do that, buddy!")
-            veto_no()
+        for v in DISABLE_VOTES:
+            if v == vote:
+                self.msg(DISABLE_VOTES[v])
+                return minqlx.RET_STOP_ALL
 
 
