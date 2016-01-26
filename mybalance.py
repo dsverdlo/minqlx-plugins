@@ -23,7 +23,7 @@ import os
 
 from minqlx.database import Redis
 
-VERSION = "v0.32"
+VERSION = "v0.33"
 
 ELO_MIN = 0 # default (and minimum elo) is 1000, so anything below that equals unrestricted
 ELO_MAX = 1600
@@ -628,6 +628,8 @@ class mybalance(minqlx.Plugin):
             for p in js["players"]:
                 _sid = int(p["steamid"])
                 if _sid == sid: # got our player
+                    if gt not in p:
+                        return minqlx.console_command("echo No {} rating for {}".format(gt, _sid))
                     _gt = p[gt]
                     return callback(player, _gt["elo"], _gt["games"])
 
