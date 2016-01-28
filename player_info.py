@@ -163,11 +163,15 @@ class player_info(minqlx.Plugin):
             for p in js["players"]:
                 _sid = int(p["steamid"])
                 if _sid == sid: # got our player
-                    if gt: return self.callback(player, p[gt]["elo"], p[gt]["games"])
-                    return self.callback_all(player, p)
+                    # If they want all the elos
+                    if not gt: return self.callback_all(player, p)
+                    # If the request gametype is found
+                    if gt in p: return self.callback(player, p[gt]["elo"], p[gt]["games"])
+                    # If the gametype was not found
+                    else: return self.callback(player, 0,0)
 
 
-        # minqlx.CHAT_CHANNEL.reply("^7Problem fetching elo: " + last_status)
+
         return self.callback(player, 0, 0)
 
 
@@ -211,11 +215,11 @@ class player_info(minqlx.Plugin):
 
 
         info = ["^6{} ^7games here".format(completed + left)]
-        if elo: info[0] = info[0] + " ^7(^6{}^7 tracked)".format(games)
+        info[0] = info[0] + " ^7(^6{}^7 tracked {})".format(games, self.game.type_short)
 
         info.append("^7quit ^6{}^7％".format(round(left/(games_here_p)*100)))
 
-        if elo: info.append("^7{}ELO: ^6{}^7".format('b' if self.get_cvar('qlx_elo_api') == 'elo_b' else '', elo, games))
+        info.append("^3{} ^7{}ELO: ^6{}^7".format(self.game.type_short.upper(),'b' if self.get_cvar('qlx_elo_api') == 'elo_b' else '', elo, games))
 
         return minqlx.CHAT_CHANNEL.reply("^6{}^7: ".format(name) + "^7, ".join(info) + "^7.")
 
