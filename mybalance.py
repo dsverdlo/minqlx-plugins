@@ -2,6 +2,9 @@
 # Copyright (c) 2016 iouonegirl
 # https://github.com/dsverdlo/minqlx-plugins
 #
+# You are free to modify this plugin to your custom,
+# except for the version command related code.
+#
 # Its purpose is to balance the teams out. For now we don't
 # have ways to compare players, so that might be added later
 # for now it can move players by name, and perform an action
@@ -11,6 +14,12 @@
 # this plugin does improve upon it by vetoing NO to shuffles on
 # uneven teams, and kicking people if they fall below server elo
 # requirements
+#
+# Uses:
+# - qlx_elo_limit_min "0"
+# - qlx_elo_limit_max "1600"
+# - qlx_elo_games_needed "10"
+# - qlx_elo_api "elo"  (can be either 'elo' or 'elo_b')
 
 
 import minqlx
@@ -23,11 +32,7 @@ import os
 
 from minqlx.database import Redis
 
-VERSION = "v0.33"
-
-ELO_MIN = 0 # default (and minimum elo) is 1000, so anything below that equals unrestricted
-ELO_MAX = 1600
-GAMES_NEEDED = 10 # games needed to have been tracked by qlstats.net before we apply the limit
+VERSION = "v0.35"
 
 # Add a little bump to the boundary for regulars.
 # This list must be in ordered lists of [games_needed, elo_bump] from small to big
@@ -44,10 +49,6 @@ CP_MESS = "\n\n\nTeams are uneven. You will be forced to spec."
 # Options: spec, slay, ignore
 DEFAULT_LAST_ACTION = "spec"
 
-# Use /elo_b/ for B-rankings (fun servers)
-# or /elo/ for A-rankings (standard servers)
-FUN_SERVER = True
-
 # Database Keys
 TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 PLAYER_KEY = "minqlx:players:{}"
@@ -62,7 +63,6 @@ EXCEPTIONS_FILE = "exceptions.txt"
 EXT_SUPPORTED_GAMETYPES = ("ca", "ctf", "dom", "ft", "tdm", "duel", "ffa")
 RATING_KEY = "minqlx:players:{0}:ratings:{1}" # 0 == steam_id, 1 == short gametype.
 API_URL = "http://qlstats.net:8080/elo/{}"
-if FUN_SERVER: API_URL = "http://qlstats.net:8080/elo_b/{}"
 MAX_ATTEMPTS = 3
 CACHE_EXPIRE = 60*30 # 30 minutes TTL.
 DEFAULT_RATING = 1000
@@ -72,6 +72,20 @@ SUPPORTED_GAMETYPES = ("ca", "ctf", "dom", "ft", "tdm")
 class mybalance(minqlx.Plugin):
     def __init__(self):
         super().__init__()
+
+        # set cvars once. EDIT THESE IN SERVER.CFG!
+        self.set_cvar_once("qlx_elo_limit_min", "0")
+        self.set_cvar_once("qlx_elo_limit_max", "1600")
+        self.set_cvar_once("qlx_elo_games_needed", "10")
+        self.set_cvar_once("qlx_elo_api", "elo")
+
+        # get cvars
+        self.ELO_MIN = int(self.get_cvar("qlx_elo_limit_min"))
+        self.ELO_MAX = int(self.get_cvar("qlx_elo_limit_max"))
+        self.GAMES_NEEDED = int(self.get_cvar("qlx_elo_games_needed"))
+        global API_URL
+        if self.get_cvar("qlx_elo_api") == "elo_b":
+            API_URL = "http://qlstats.net:8080/elo_b/{}"
 
         self.prevent = False
         self.last_action = DEFAULT_LAST_ACTION
@@ -99,6 +113,10 @@ class mybalance(minqlx.Plugin):
         self.add_command("remkicked", self.cmd_rem_kicked, 2, usage="<id>")
         self.add_command(("nokick", "dontkick"), self.cmd_nokick, 2, usage="[<name>]")
         self.add_command(("v_mybalance", "version_mybalance"), self.cmd_version)
+        self.add_command(("limit", "limits", "elolimit"), self.cmd_elo_limit)
+        self.add_command(("elomin", "minelo"), self.cmd_min_elo, 3, usage="[ELO]")
+        self.add_command(("elomax", "maxelo"), self.cmd_max_elo, 3, usage="[ELO]")
+        self.add_command(("rankings", "elotype"), self.cmd_elo_type, usage="[A|B]")
         self.add_hook("team_switch", self.handle_team_switch)
         self.add_hook("round_start", self.handle_round_start)
         self.add_hook("round_end", self.handle_round_end)
@@ -118,6 +136,59 @@ class mybalance(minqlx.Plugin):
         self.add_command(("getrating", "getelo", "elo"), self.cmd_getrating, usage="<id>|<name> [gametype]")
         self.add_command(("remrating", "remelo"), self.cmd_remrating, 3, usage="<id>|<name>")
 
+    def cmd_elo_type(self, player, msg, channel):
+        if len(msg) < 2:
+            if API_URL == "http://qlstats.net:8080/elo/{}":
+                channel.reply("^7The server is retrieving A (normal) rankings.")
+            elif API_URL == "http://qlstats.net:8080/elo_b/{}":
+                channel.reply("^7The server is retrieving with B (fun server) rankings.")
+            return
+        elif len(msg) < 3:
+            if not self.db.has_permission(player, 3):
+                player.tell("^6You don't have the required permission (3) to perform this action. ")
+                return minqlx.RET_STOP_ALL
+            if not (msg[1].lower() in ['a', 'b']):
+                return minqlx.RET_USAGE
+            global API_URL
+            if msg[1].lower() == 'a':
+                API_URL = "http://qlstats.net:8080/elo/{}"
+            else:
+                API_URL = "http://qlstats.net:8080/elo_b/{}"
+            channel.reply("^7Temporary switched to ^6{}^7 rankings".format(msg[1].upper()))
+            return
+
+
+
+    def cmd_min_elo(self, player, msg, channel):
+        if len(msg) < 2:
+            channel.reply("^7The minimum elo required for this server is: ^6{}^7.".format(self.ELO_MIN))
+        elif len(msg) < 3:
+            try:
+                new_elo = int(msg[1])
+                assert new_elo >= 0
+            except:
+                return minqlx.RET_USAGE
+            self.ELO_MIN = new_elo
+            channel.reply("^7The server minimum elo has been temporarily set to: ^6{}^7.".format(new_elo))
+        else:
+            return minqlx.RET_USAGE
+
+    def cmd_max_elo(self, player, msg, channel):
+        if len(msg) < 2:
+            channel.reply("^7The maximum elo set for this server is: ^6{}^7.".format(self.ELO_MAX))
+        elif len(msg) < 3:
+            try:
+                new_elo = int(msg[1])
+                assert new_elo >= 0
+            except:
+                return minqlx.RET_USAGE
+            self.ELO_MAX = new_elo
+            channel.reply("^7The server maximum elo has been temporarily set to: ^6{}^7.".format(new_elo))
+        else:
+            return minqlx.RET_USAGE
+
+    def cmd_elo_limit(self, player, msg, channel):
+        channel.reply("^7The server only allows players with an elo between ^6{}^7 and ^6{}^7.".format(self.ELO_MIN, self.ELO_MAX))
 
     # View a list of kicked players with their ID and elo
     def cmd_elo_kicked(self, player, msg, channel):
@@ -697,7 +768,7 @@ class mybalance(minqlx.Plugin):
 
 
     def callback(self, player, elo, games):
-        if games < GAMES_NEEDED: return
+        if games < self.GAMES_NEEDED: return
 
         def do_with(fun):
             try:
@@ -719,29 +790,21 @@ class mybalance(minqlx.Plugin):
             left = 0
 
 
-        max_elo = ELO_MAX
+        max_elo = self.ELO_MAX
         for threshold, boundary in reversed(BOUNDARIES):
             if left + completed >= threshold:
                 max_elo += boundary
                 break
 
 
-        if ELO_MIN > elo:
+        if self.ELO_MIN > elo:
             self.kicked[player.steam_id] = [player.name or "unknown_name", elo]
             m = "Sorry, {} your elo ({}) doesn't meet the server requirements. You'll be ^6kicked ^7shortly."
-            act1 = lambda: do_with(lambda _p: _p.mute())
-            act2 = lambda: minqlx.CHAT_CHANNEL.reply("^7"+m.format(player.name, elo))
-            act3 = lambda: do_with(lambda _p: minqlx.kick(_p.id, "^1GOT KICKED!^7 Elo ({}) was too low for this server.".format(elo)))
-            #self.delayact([None, None, act1, act2, None, act3], 6)
             self.help_start_kickthread(player, elo)
 
         elif max_elo < elo:
             self.kicked[player.steam_id] = [player.name or "unknown_name", elo]
             m = "Sorry, {} your elo ({}) is ^6too high^7 to play on this server. You'll be ^6kicked^7 shortly."
-            act1 = lambda: do_with(lambda _p: _p.mute())
-            act2 = lambda: minqlx.CHAT_CHANNEL.reply("^7"+m.format(player.name, elo))
-            act3 = lambda: do_with(lambda _p: minqlx.kick(_p.id, "^1 GOT KICKED!^7 Elo ({}) was too high for this server.".format(elo)))
-            #self.delayact([None, None, act1, act2, None, act3], 6)
             self.help_start_kickthread(player, elo)
 
     def find_by_name_or_id(self, player, target):
