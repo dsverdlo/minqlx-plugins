@@ -32,7 +32,7 @@ import os
 
 from minqlx.database import Redis
 
-VERSION = "v0.35"
+VERSION = "v0.36"
 
 # Add a little bump to the boundary for regulars.
 # This list must be in ordered lists of [games_needed, elo_bump] from small to big
@@ -62,10 +62,9 @@ EXCEPTIONS_FILE = "exceptions.txt"
 # Elo retrieval vars
 EXT_SUPPORTED_GAMETYPES = ("ca", "ctf", "dom", "ft", "tdm", "duel", "ffa")
 RATING_KEY = "minqlx:players:{0}:ratings:{1}" # 0 == steam_id, 1 == short gametype.
-API_URL = "http://qlstats.net:8080/elo/{}"
 MAX_ATTEMPTS = 3
 CACHE_EXPIRE = 60*30 # 30 minutes TTL.
-DEFAULT_RATING = 1000
+DEFAULT_RATING = 1500
 SUPPORTED_GAMETYPES = ("ca", "ctf", "dom", "ft", "tdm")
 
 
@@ -83,9 +82,6 @@ class mybalance(minqlx.Plugin):
         self.ELO_MIN = int(self.get_cvar("qlx_elo_limit_min"))
         self.ELO_MAX = int(self.get_cvar("qlx_elo_limit_max"))
         self.GAMES_NEEDED = int(self.get_cvar("qlx_elo_games_needed"))
-        global API_URL
-        if self.get_cvar("qlx_elo_api") == "elo_b":
-            API_URL = "http://qlstats.net:8080/elo_b/{}"
 
         self.prevent = False
         self.last_action = DEFAULT_LAST_ACTION
@@ -138,23 +134,22 @@ class mybalance(minqlx.Plugin):
 
     def cmd_elo_type(self, player, msg, channel):
         if len(msg) < 2:
-            if API_URL == "http://qlstats.net:8080/elo/{}":
+            if self.get_cvar('qlx_elo_api') == 'elo':
                 channel.reply("^7The server is retrieving A (normal) rankings.")
-            elif API_URL == "http://qlstats.net:8080/elo_b/{}":
+            elif self.get_cvar('qlx_elo_api') == 'elo_b':
                 channel.reply("^7The server is retrieving with B (fun server) rankings.")
             return
         elif len(msg) < 3:
+            # If the player doesnt have the permission to change it
             if not self.db.has_permission(player, 3):
                 player.tell("^6You don't have the required permission (3) to perform this action. ")
                 return minqlx.RET_STOP_ALL
-            if not (msg[1].lower() in ['a', 'b']):
+            # If there was not a correct ranking type given
+            rankings = {'a':'elo', 'b': 'elo_b'}
+            if not (msg[1].lower() in rankings):
                 return minqlx.RET_USAGE
-            global API_URL
-            if msg[1].lower() == 'a':
-                API_URL = "http://qlstats.net:8080/elo/{}"
-            else:
-                API_URL = "http://qlstats.net:8080/elo_b/{}"
-            channel.reply("^7Temporary switched to ^6{}^7 rankings".format(msg[1].upper()))
+            self.set_cvar('qlx_elo_api', rankings[msg[1].lower()])
+            channel.reply("^7Switched to ^6{}^7 rankings.".format(msg[1].upper()))
             return
 
 
@@ -685,7 +680,7 @@ class mybalance(minqlx.Plugin):
         last_status = 0
         while attempts < MAX_ATTEMPTS:
             attempts += 1
-            url = API_URL.format(sid)
+            url = "http://qlstats.net:8080/{elo}/{}".format(sid, elo=self.get_cvar('qlx_elo_api'))
             res = requests.get(url)
             last_status = res.status_code
             if res.status_code != requests.codes.ok:

@@ -2,18 +2,20 @@
 # Copyright (c) 2016 iouonegirl
 # https://github.com/dsverdlo/minqlx-plugins
 #
+# You are free to modify this plugin to your custom,
+# except for the version command related code.
+#
 # Its purpose is to display some information about the players.
 # When players fall off the scoreboard, they are now also able
 # to view their information
-
+#
+# Uses:
+# - qlx_info_api "elo" (use "elo_b" for B rankings)
 
 import minqlx
 import requests
 
-VERSION = "v0.17"
-
-# Fun server --> get B rankings
-FUN_SERVER = True
+VERSION = "v0.20"
 
 PLAYER_KEY = "minqlx:players:{}"
 COMPLETED_KEY = PLAYER_KEY + ":games_completed"
@@ -22,17 +24,18 @@ LEFT_KEY = PLAYER_KEY + ":games_left"
 # Elo retrieval vars
 EXT_SUPPORTED_GAMETYPES = ("ca", "ctf", "dom", "ft", "tdm", "duel", "ffa")
 RATING_KEY = "minqlx:players:{0}:ratings:{1}" # 0 == steam_id, 1 == short gametype.
-API_URL = "http://qlstats.net:8080/elo/{}"
-if FUN_SERVER: API_URL = "http://qlstats.net:8080/elo_b/{}"
 MAX_ATTEMPTS = 3
 CACHE_EXPIRE = 60*30 # 30 minutes TTL.
-DEFAULT_RATING = 1000
+DEFAULT_RATING = 1500
 SUPPORTED_GAMETYPES = ("ca", "ctf", "dom", "ft", "tdm")
 
 
 class player_info(minqlx.Plugin):
     def __init__(self):
         super().__init__()
+
+        # set cvars once. EDIT THESE IN SERVER.CFG
+        self.set_cvar_once("qlx_elo_api", "elo")
 
         self.add_command("info", self.cmd_player_info,  usage="[<id>|<name>]")
         self.add_command("scoreboard", self.cmd_scoreboard, usage="[<id>|<name>]")
@@ -146,7 +149,7 @@ class player_info(minqlx.Plugin):
         last_status = 0
         while attempts < MAX_ATTEMPTS:
             attempts += 1
-            url = API_URL.format(sid)
+            url = "http://qlstats.net:8080/{elo}/{}".format(sid, elo=self.get_cvar('qlx_elo_api'))
             res = requests.get(url)
             last_status = res.status_code
             if res.status_code != requests.codes.ok:
@@ -179,7 +182,7 @@ class player_info(minqlx.Plugin):
         if not info:
             self.msg("^6{}^7 has no tracked elos.".format(player.name))
         else:
-            b = 'b' if FUN_SERVER else ''
+            b = 'b' if self.get_cvar('qlx_elo_api') == 'elo_b' else ''
             self.msg("^6{}^7's {}ELO's: {}".format(player.name, b, ", ".join(info)))
 
 
@@ -212,7 +215,7 @@ class player_info(minqlx.Plugin):
 
         info.append("^7quit ^6{}^7％".format(round(left/(games_here_p)*100)))
 
-        if elo: info.append("^7{}ELO: ^6{}^7".format('b' if FUN_SERVER else '', elo, games))
+        if elo: info.append("^7{}ELO: ^6{}^7".format('b' if self.get_cvar('qlx_elo_api') == 'elo_b' else '', elo, games))
 
         return minqlx.CHAT_CHANNEL.reply("^6{}^7: ".format(name) + "^7, ".join(info) + "^7.")
 
