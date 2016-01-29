@@ -20,6 +20,7 @@
 # - qlx_elo_limit_max "1600"
 # - qlx_elo_games_needed "10"
 # - qlx_elo_api "elo"  (can be either 'elo' or 'elo_b')
+# - qlx_elo_kick "0"
 
 
 import minqlx
@@ -32,7 +33,7 @@ import os
 
 from minqlx.database import Redis
 
-VERSION = "v0.36"
+VERSION = "v0.37"
 
 # Add a little bump to the boundary for regulars.
 # This list must be in ordered lists of [games_needed, elo_bump] from small to big
@@ -77,6 +78,7 @@ class mybalance(minqlx.Plugin):
         self.set_cvar_once("qlx_elo_limit_max", "1600")
         self.set_cvar_once("qlx_elo_games_needed", "10")
         self.set_cvar_once("qlx_elo_api", "elo")
+        self.set_cvar_once("qlx_elo_kick", "0")
 
         # get cvars
         self.ELO_MIN = int(self.get_cvar("qlx_elo_limit_min"))
@@ -723,28 +725,31 @@ class mybalance(minqlx.Plugin):
         if elos: minqlx.CHAT_CHANNEL.reply("^6{}".format(m) + " ^7, ".join(elos) + "^7.")
 
 
-    def help_start_kickthread(self, player, elo):
+    def help_start_kickthread(self, player, elo, highlow):
         class kickThread(threading.Thread):
             def __init__(self, plugin, player, elo):
                 threading.Thread.__init__(self)
                 self.plugin = plugin
                 self.player = player
                 self.elo = elo
+                self.highlow = highlow
                 self.go = True
             def try_mess(self):
                 time.sleep(0.5)
-                self.plugin.msg("Sorry, {} your elo ({}) doesn't meet the server requirements. You'll be ^6kicked ^7shortly.".format(self.player.name, self.elo))
+                self.plugin.msg("^7Sorry, {} your elo ({}) doesn't meet the server requirements. You'll be ^6kicked ^7shortly.".format(self.player.name, self.elo))
             def try_mute(self):
                 time.sleep(8)
                 self.player = self.plugin.find_player(self.player.name)[0]
                 if not self.player: self.stop()
                 if self.go: self.player.mute()
             def try_kick(self):
+                if self.plugin.get_cvar("qlx_elo_kick") == "0": return
                 time.sleep(14)
                 self.player = self.plugin.find_player(self.player.name)[0]
                 if not self.player: self.stop()
-                if self.go: self.player.kick("^1GOT KICKED!^7 Elo ({}) was too high for this server.".format(self.elo))
+                if self.go: self.player.kick("^1GOT KICKED!^7 Elo ({}) was too {} for this server.".format(self.elo, self.highlow))
             def run(self):
+                self.try_mess()
                 self.try_mute()
                 self.try_kick()
                 self.stop()
@@ -791,16 +796,13 @@ class mybalance(minqlx.Plugin):
                 max_elo += boundary
                 break
 
-
         if self.ELO_MIN > elo:
             self.kicked[player.steam_id] = [player.name or "unknown_name", elo]
-            m = "Sorry, {} your elo ({}) doesn't meet the server requirements. You'll be ^6kicked ^7shortly."
-            self.help_start_kickthread(player, elo)
+            self.help_start_kickthread(player, elo, 'low')
 
         elif max_elo < elo:
             self.kicked[player.steam_id] = [player.name or "unknown_name", elo]
-            m = "Sorry, {} your elo ({}) is ^6too high^7 to play on this server. You'll be ^6kicked^7 shortly."
-            self.help_start_kickthread(player, elo)
+            self.help_start_kickthread(player, elo, 'high')
 
     def find_by_name_or_id(self, player, target):
         # Find players returns a list of name-matching players
