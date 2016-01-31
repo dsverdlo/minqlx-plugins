@@ -6,17 +6,22 @@
 # except for the version command related code.
 #
 # It's purpose if to force the last player to spectate
+#
+# Uses:
+# qlx_autospec_minplayers "2"
 
 import minqlx
 import time
 
-VERSION = "v0.11"
+VERSION = "v0.12"
 
 class autospec(minqlx.Plugin):
     def __init__(self):
         super().__init__()
 
         self.jointimes = {}
+
+        self.set_cvar_once("qlx_autospec_minplayers", "2")
 
         self.add_hook("round_start", self.handle_round_start)
         self.add_command("v_autospec", self.cmd_version)
@@ -38,7 +43,11 @@ class autospec(minqlx.Plugin):
 
     def handle_round_count(self, round_number):
         teams = self.teams()
-        if (len(teams["red"] + teams["blue"]) % 2) == 0:
+        player_count = len(teams["red"] + teams["blue"])
+        if (player_count % 2) == 0:
+            return
+
+        if player_count < int(self.get_cvar("qlx_autospec_minplayers")):
             return
 
         lowest_player = self.help_get_last(teams)
@@ -50,13 +59,18 @@ class autospec(minqlx.Plugin):
 
         # Grab the teams
         teams = self.teams()
+        player_count = len(teams["red"] + teams["blue"])
 
         # If teams are even, just return
-        if is_even(len(teams["red"] + teams["blue"])):
+        if is_even(player_count):
             return minqlx.RET_STOP_EVENT
 
         # If it is the last player, don't do this and let the game finish normally
-        if len(teams["red"] + teams["blue"]) == 1:
+        if player_count == 1:
+            return
+
+        # If there are less people than wanted, ignore
+        if player_count < int(self.get_cvar("qlx_autospec_minplayers")):
             return
 
         # Get last person
