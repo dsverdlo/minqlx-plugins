@@ -2,6 +2,9 @@
 # Copyright (c) 2016 iouonegirl
 # https://github.com/dsverdlo/minqlx-plugins
 #
+# You are free to modify this plugin to your custom,
+# except for the version command related code.
+#
 # It tracksprovides commands to translate words and sentences,
 # look up definitions, and provide autotranslation to personal
 # languages.
@@ -20,7 +23,7 @@ import minqlx
 import threading
 import requests
 
-VERSION = "v0.7"
+VERSION = "v0.10"
 
 try:
     import textblob
@@ -176,6 +179,9 @@ class translate(minqlx.Plugin):
                     if p.id == player.id: continue
                     # If this player doesnt want auto trans, go to next
                     if not self.help_get_auto_pref(p): continue
+                    # If this is the say_team from the other team, go to next
+                    if channel == minqlx.RED_TEAM_CHAT_CHANNEL and p.team == 'blue': continue
+                    if channel == minqlx.BLUE_TEAM_CHAT_CHANNEL and p.team == 'red': continue
                     # if this is the default language of the player, go to next
                     pref_tag = self.help_get_lang_tag(p)
                     if pref_tag == l: continue
@@ -199,20 +205,26 @@ class translate(minqlx.Plugin):
             nltk.download('wordnet')
             self.msg("^6TranslatePlugin: ^7Wordnet downloading successfull. Installing... ^2complete!")
             try:
-                callback()
+                callback(True)
             except Exception as e:
                 self.msg("^1DefinitionError^7: {}.".format(e))
 
-        def callback():
-            w = textblob.Word(msg[1])
-            defs = w.definitions
-            if not defs:
-                channel.reply(C+"No results found for: {}".format(msg[1]))
-            else:
-                channel.reply("^7Definition(s): " + C +  "'^7, ^4'".join(defs))
+        def callback(second_time=False):
+            try:
+                w = textblob.Word(msg[1])
+                defs = w.definitions
+                if not defs:
+                    channel.reply(C+"No results found for: {}".format(msg[1]))
+                else:
+                    channel.reply("^7Definition(s): " + C +  "'^7, ^4'".join(defs))
+            except:
+                if not second_time:
+                    download_wordnet()
+                    #threading.Thread(target=download_wordnet).start()
+
 
         try:
-            callback()
+            threading.Thread(target=callback).start()
         except Exception as e:
             threading.Thread(target=download_wordnet).start()
 
@@ -220,7 +232,9 @@ class translate(minqlx.Plugin):
         channel.reply("^7TranslationCommands: ^2!languages^7, ^2!lang^7, ^2!define^7, ^2!urban^7, ^2!translate^7, ^2!stranslate^7, ^2!autotrans")
 
     def cmd_silent_translate(self, player, msg, channel):
-        self.cmd_translate(self, player, msg, channel, True)
+        player.tell("^6TranslateRequest: ^2{}".format(msg[1:]))
+        self.cmd_translate(player, msg, channel, True)
+        return minqlx.RET_STOP_ALL
 
     def cmd_translate(self, player, msg, channel, silent=False):
         if len(msg) < 3:
@@ -229,7 +243,7 @@ class translate(minqlx.Plugin):
         if msg[1].lower() in TAGS:
             to = msg[1]
         elif msg[1].title() in LANGS:
-            to = LANGS[msg[1]]
+            to = LANGS[msg[1].title()]
         else:
             matches = []
             for lang in LANGS:

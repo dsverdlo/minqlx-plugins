@@ -2,6 +2,9 @@
 # Copyright (c) 2016 iouonegirl
 # https://github.com/dsverdlo/minqlx-plugins
 #
+# You are free to modify this plugin to your custom,
+# except for the version command related code.
+#
 # Original idea from <roasticle>, but edited to support
 # a list of sounds which will be played one by one after each match.
 #
@@ -13,7 +16,7 @@
 
 import minqlx
 
-VERSION = "v0.8"
+VERSION = "v0.9"
 
 # These songs will be looped one by one
 SONGS = [

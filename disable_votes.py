@@ -2,11 +2,14 @@
 # Copyright (c) 2016 iouonegirl
 # https://github.com/dsverdlo/minqlx-plugins
 #
+# You are free to modify this plugin to your custom,
+# except for the version command related code.
+#
 # This plugin disables certain votes during a game
 
 import minqlx
 
-VERSION = "v0.5"
+VERSION = "v0.6"
 
 DISABLE_VOTES = {
     'map': '^1You are not allowed to callvote maps during a match!',

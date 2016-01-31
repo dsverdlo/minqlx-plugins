@@ -19,8 +19,8 @@
 # - qlx_elo_limit_min "0"
 # - qlx_elo_limit_max "1600"
 # - qlx_elo_games_needed "10"
-# - qlx_elo_api "elo"  (can be either 'elo' or 'elo_b')
-# - qlx_elo_kick "0"
+# - qlx_elo_kick "1"
+# - qlx_elo_block_connecters "0"
 
 
 import minqlx
@@ -33,7 +33,7 @@ import os
 
 from minqlx.database import Redis
 
-VERSION = "v0.37"
+VERSION = "v0.38"
 
 # Add a little bump to the boundary for regulars.
 # This list must be in ordered lists of [games_needed, elo_bump] from small to big
@@ -77,8 +77,9 @@ class mybalance(minqlx.Plugin):
         self.set_cvar_once("qlx_elo_limit_min", "0")
         self.set_cvar_once("qlx_elo_limit_max", "1600")
         self.set_cvar_once("qlx_elo_games_needed", "10")
-        self.set_cvar_once("qlx_elo_api", "elo")
-        self.set_cvar_once("qlx_elo_kick", "0")
+        self.set_cvar_once("qlx_balanceApi", "elo")
+        self.set_cvar_once("qlx_elo_kick", "1")
+        self.set_cvar_once("qlx_elo_block_connectors", "0")
 
         # get cvars
         self.ELO_MIN = int(self.get_cvar("qlx_elo_limit_min"))
@@ -102,7 +103,6 @@ class mybalance(minqlx.Plugin):
         self.exceptions = []
         self.cmd_help_load_exceptions(None, None, None)
 
-
         self.add_command("prevent", self.cmd_prevent_last, 2)
         self.add_command("last", self.cmd_last_action, 2, usage="[SLAY|SPEC|IGNORE]")
         self.add_command(("load_exceptions", "reload_exceptions"), self.cmd_help_load_exceptions, 3)
@@ -122,6 +122,14 @@ class mybalance(minqlx.Plugin):
         self.add_hook("player_connect", self.handle_player_connect)
         self.add_hook("player_disconnect", self.handle_player_disconnect)
 
+        self.add_command(("setrating", "setelo"), self.cmd_setrating, 3, usage="<id>|<name> <rating>")
+        self.add_command(("getrating", "getelo", "elo"), self.cmd_getrating, usage="<id>|<name> [gametype]")
+        self.add_command(("remrating", "remelo"), self.cmd_remrating, 3, usage="<id>|<name>")
+
+        self.unload_overlapping_commands()
+
+    @minqlx.delay(1)
+    def unload_overlapping_commands(self):
         try:
             balance = minqlx.Plugin._loaded_plugins['balance']
             remove_commands = set(['setrating', 'getrating', 'remrating'])
@@ -130,15 +138,12 @@ class mybalance(minqlx.Plugin):
                     balance.remove_command(cmd.name, cmd.handler)
         except Exception as e:
             pass
-        self.add_command(("setrating", "setelo"), self.cmd_setrating, 3, usage="<id>|<name> <rating>")
-        self.add_command(("getrating", "getelo", "elo"), self.cmd_getrating, usage="<id>|<name> [gametype]")
-        self.add_command(("remrating", "remelo"), self.cmd_remrating, 3, usage="<id>|<name>")
 
     def cmd_elo_type(self, player, msg, channel):
         if len(msg) < 2:
-            if self.get_cvar('qlx_elo_api') == 'elo':
+            if self.get_cvar('qlx_balanceApi') == 'elo':
                 channel.reply("^7The server is retrieving A (normal) rankings.")
-            elif self.get_cvar('qlx_elo_api') == 'elo_b':
+            elif self.get_cvar('qlx_balanceApi') == 'elo_b':
                 channel.reply("^7The server is retrieving with B (fun server) rankings.")
             return
         elif len(msg) < 3:
@@ -150,7 +155,7 @@ class mybalance(minqlx.Plugin):
             rankings = {'a':'elo', 'b': 'elo_b'}
             if not (msg[1].lower() in rankings):
                 return minqlx.RET_USAGE
-            self.set_cvar('qlx_elo_api', rankings[msg[1].lower()])
+            self.set_cvar('qlx_balanceApi', rankings[msg[1].lower()])
             channel.reply("^7Switched to ^6{}^7 rankings.".format(msg[1].upper()))
             return
 
@@ -208,8 +213,12 @@ class mybalance(minqlx.Plugin):
         except:
             return minqlx.RET_USAGE
 
-        name, elo = self.kicked[n]
-        del self.kicked[n]
+        for sid in self.kicked.copy():
+            if not n:
+                name, elo = self.kicked[sid]
+                del self.kicked[sid]
+            else:
+                n -= 1
         channel.reply("^7Successfully removed ^6{}^7 (elo {}) from the list.".format(name, elo))
 
     def cmd_nokick(self, player, msg, channel):
@@ -343,13 +352,14 @@ class mybalance(minqlx.Plugin):
                 excps = []
                 n = 0
                 for line in file:
-                    n += 1
                     if line.startswith("#"): continue # comment lines
                     sid, name = line.split(" ")
                     try:
                         excps.append(int(sid))
                         if player:
                             player.tell("^6Psst: ^2Loaded: ^7{} ({})".format(sid, name.strip('\n\r\t')))
+
+                        n += 1
                     except:
                         continue
 
@@ -382,7 +392,26 @@ class mybalance(minqlx.Plugin):
     def handle_player_connect(self, player):
         # If you are not an exception, you must be checked for elo limit
         if not (player.steam_id in self.exceptions):
-            self.fetch(player, self.game.type_short, self.callback)
+
+            if int(self.get_cvar("qlx_elo_block_connecters")):
+                try:
+                    url = "http://qlstats.net:8080/{elo}/{}".format(player.steam_id, elo=self.get_cvar('qlx_balanceApi'))
+                    res = requests.get(url)
+                    if res.status_code != requests.codes.ok: raise
+                    js = res.json()
+                    gt = self.game.type_short
+                    if "players" not in js: raise
+                    for p in js["players"]:
+                        if int(p["steamid"]) == player.steam_id and gt in p:
+                            eval_elo = self.evaluate_elo_games(player, p[gt]['elo'], p[gt]['games'])
+                            if eval_elo:
+                                return "^1Sorry, but your skill rating {} is too {}! Accepted ratings: {} - {}".format(eval_elo[1], eval_elo[0], self.ELO_MIN, self.ELO_MAX)
+                except Exception as e:
+                    minqlx.console_command("echo Error: {}".format(e))
+                    pass
+            else:
+                self.fetch(player, self.game.type_short, self.callback)
+
 
         # Record their join times regardless
         self.jointimes[player.steam_id] = time.time()
@@ -408,7 +437,12 @@ class mybalance(minqlx.Plugin):
         if new in ['red', 'blue']:
             if player.steam_id in self.kicked:
                 player.put("spectator")
-                player.tell("^6You do not meet the ELO requirements to play on this server. You'll be kicked shortly.")
+                if self.get_cvar("qlx_elo_kick") == "1":
+                    kickmsg = "so you'll be kicked shortly..."
+                else:
+                    kickmsg = "but you are free to keep watching."
+                player.tell("^6You do not meet the ELO requirements to play on this server, {}".format(kickmsg))
+                player.center_print("^6You do not meet the ELO requirements to play on this server, {}".format(kickmsg))
 
 
 
@@ -682,7 +716,7 @@ class mybalance(minqlx.Plugin):
         last_status = 0
         while attempts < MAX_ATTEMPTS:
             attempts += 1
-            url = "http://qlstats.net:8080/{elo}/{}".format(sid, elo=self.get_cvar('qlx_elo_api'))
+            url = "http://qlstats.net:8080/{elo}/{}".format(sid, elo=self.get_cvar('qlx_balanceApi'))
             res = requests.get(url)
             last_status = res.status_code
             if res.status_code != requests.codes.ok:
@@ -735,22 +769,26 @@ class mybalance(minqlx.Plugin):
                 self.highlow = highlow
                 self.go = True
             def try_mess(self):
-                time.sleep(0.5)
-                self.plugin.msg("^7Sorry, {} your elo ({}) doesn't meet the server requirements. You'll be ^6kicked ^7shortly.".format(self.player.name, self.elo))
+                time.sleep(4)
+                if self.plugin.get_cvar("qlx_elo_kick") == "1":
+                    kickmsg = "so you'll be ^6kicked ^7shortly..."
+                else:
+                    kickmsg = "but you are free to keep watching."
+                self.plugin.msg("^7Sorry, {} your elo ({}) doesn't meet the server requirements, {}".format(self.player.name, self.elo, kickmsg))
             def try_mute(self):
-                time.sleep(8)
-                self.player = self.plugin.find_player(self.player.name)[0]
+                time.sleep(4)
+                self.player = self.plugin.find_player(self.player.id)[0]
                 if not self.player: self.stop()
-                if self.go: self.player.mute()
+                if self.go and self.plugin.get_cvar("qlx_elo_kick") == "1": self.player.mute()
             def try_kick(self):
                 if self.plugin.get_cvar("qlx_elo_kick") == "0": return
                 time.sleep(14)
-                self.player = self.plugin.find_player(self.player.name)[0]
+                self.player = self.plugin.find_player(self.player.id)[0]
                 if not self.player: self.stop()
                 if self.go: self.player.kick("^1GOT KICKED!^7 Elo ({}) was too {} for this server.".format(self.elo, self.highlow))
             def run(self):
-                self.try_mess()
                 self.try_mute()
+                self.try_mess()
                 self.try_kick()
                 self.stop()
             def stop(self):
@@ -768,16 +806,17 @@ class mybalance(minqlx.Plugin):
 
 
     def callback(self, player, elo, games):
+        eval_elo = self.evaluate_elo_games(player, elo, games)
+        if eval_elo:
+            self.kicked[player.steam_id] = [player.name or "unknown_name", eval_elo[1]]
+            self.help_start_kickthread(player, eval_elo[1], eval_elo[0])
+
+
+    def evaluate_elo_games(self, player, elo, games):
         if games < self.GAMES_NEEDED: return
 
-        def do_with(fun):
-            try:
-                player.update()
-                fun(player)
-            except: pass
-
         key = RATING_KEY.format(player.steam_id, self.game.type_short)
-        if (key in self.db):# and (int(self.db[key]) > elo):
+        if (key in self.db):
             elo = int(self.db[key])
 
         try:
@@ -796,13 +835,8 @@ class mybalance(minqlx.Plugin):
                 max_elo += boundary
                 break
 
-        if self.ELO_MIN > elo:
-            self.kicked[player.steam_id] = [player.name or "unknown_name", elo]
-            self.help_start_kickthread(player, elo, 'low')
-
-        elif max_elo < elo:
-            self.kicked[player.steam_id] = [player.name or "unknown_name", elo]
-            self.help_start_kickthread(player, elo, 'high')
+        if elo < self.ELO_MIN: return ['low', elo]
+        if max_elo < elo: return ['high', elo]
 
     def find_by_name_or_id(self, player, target):
         # Find players returns a list of name-matching players

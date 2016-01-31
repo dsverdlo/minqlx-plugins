@@ -2,12 +2,15 @@
 # Copyright (c) 2016 iouonegirl
 # https://github.com/dsverdlo/minqlx-plugins
 #
+# You are free to modify this plugin to your custom,
+# except for the version command related code.
+#
 # It's purpose if to force the last player to spectate
 
 import minqlx
 import time
 
-VERSION = "v0.10"
+VERSION = "v0.11"
 
 class autospec(minqlx.Plugin):
     def __init__(self):

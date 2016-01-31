@@ -2,22 +2,34 @@
 # Copyright (c) 2016 iouonegirl
 # https://github.com/dsverdlo/minqlx-plugins
 #
+# You are free to modify this plugin to your custom,
+# except for the version command related code.
+#
 # It provides a method to !print something in the center of a player's screen,
 # or !broadcast it over the whole server (print on everybody's screen)
 # and a toggle command (!showlast) to view when there is only one enemy left
+#
+# Uses
+# - qlx_cp_message "One enemy left. Start the hunt"
+
 
 import minqlx
 import datetime
 import time
 import re
 
-VERSION = "v0.4"
+VERSION = "v0.6"
+
 PLAYER_KEY = "minqlx:players:{}"
 NOTIFY_LAST_KEY = PLAYER_KEY + ":notifylast"
 
 class centerprint(minqlx.Plugin):
     def __init__(self):
         super().__init__()
+
+        # Set required cvars once. EDIT THIS IN THE SERVER.CFG
+        self.set_cvar_once("qlx_cp_message", "One enemy left. Start the hunt")
+
         self.add_command(("print", "pprint", "cprint", "centerprint"), self.cmd_center_print, 3, usage="<name>|<id> <message>")
         self.add_command("broadcast", self.cmd_broadcast, 3)
         self.add_command("showlast", self.cmd_toggle_pref)
@@ -61,7 +73,7 @@ class centerprint(minqlx.Plugin):
             if int(data['TEAM_ALIVE']) == 1: # viewpoint of victim
                 for _p in teams["red" if _vic_team == "blue" else "blue"]:
                     if self.get_notif_pref(_p.steam_id):
-                        minqlx.send_server_command(_p.id, "cp \"\n\n\nOne enemy left. Start the hunt!\"")
+                        minqlx.send_server_command(_p.id, "cp \"\n\n\n{}!\"".format(self.get_cvar("qlx_cp_message")))
 
 
 

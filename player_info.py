@@ -1,5 +1,5 @@
 ﻿# This is a plugin created by iouonegirl(@gmail.com)
-# Copyright (c) 2016 iouonegirl
+# Copyright (c) 2016 iouonegirl + Minkyn
 # https://github.com/dsverdlo/minqlx-plugins
 #
 # You are free to modify this plugin to your custom,
@@ -10,12 +10,12 @@
 # to view their information
 #
 # Uses:
-# - qlx_info_api "elo" (use "elo_b" for B rankings)
+# - qlx_pinfo_display_auto "0"
 
 import minqlx
 import requests
 
-VERSION = "v0.20"
+VERSION = "v0.23"
 
 PLAYER_KEY = "minqlx:players:{}"
 COMPLETED_KEY = PLAYER_KEY + ":games_completed"
@@ -35,13 +35,20 @@ class player_info(minqlx.Plugin):
         super().__init__()
 
         # set cvars once. EDIT THESE IN SERVER.CFG
-        self.set_cvar_once("qlx_elo_api", "elo")
+        self.set_cvar_once("qlx_balanceApi", "elo")
+        self.set_cvar_once("qlx_pinfo_display_auto", "0")
 
         self.add_command("info", self.cmd_player_info,  usage="[<id>|<name>]")
         self.add_command("scoreboard", self.cmd_scoreboard, usage="[<id>|<name>]")
         self.add_command(("v_player_info", "version_player_info"), self.cmd_version)
         self.add_command(("allelo", "allelos", "aelo", "eloall"), self.cmd_all_elos, usage="[<id>|<name>]")
 
+        self.add_hook("player_connect", self.handle_player_connect, priority=minqlx.PRI_LOWEST)
+
+
+    def handle_player_connect(self, player):
+    	if int(self.get_cvar("qlx_pinfo_display_auto")):
+    		self.fetch(player, self.game.type_short)
 
     def cmd_version(self, player, msg, channel):
         plugin = self.__class__.__name__
@@ -149,7 +156,7 @@ class player_info(minqlx.Plugin):
         last_status = 0
         while attempts < MAX_ATTEMPTS:
             attempts += 1
-            url = "http://qlstats.net:8080/{elo}/{}".format(sid, elo=self.get_cvar('qlx_elo_api'))
+            url = "http://qlstats.net:8080/{elo}/{}".format(sid, elo=self.get_cvar('qlx_balanceApi'))
             res = requests.get(url)
             last_status = res.status_code
             if res.status_code != requests.codes.ok:
@@ -186,7 +193,7 @@ class player_info(minqlx.Plugin):
         if not info:
             self.msg("^6{}^7 has no tracked elos.".format(player.name))
         else:
-            b = 'b' if self.get_cvar('qlx_elo_api') == 'elo_b' else ''
+            b = 'b' if self.get_cvar('qlx_balanceApi') == 'elo_b' else ''
             self.msg("^6{}^7's {}ELO's: {}".format(player.name, b, ", ".join(info)))
 
 
@@ -219,7 +226,7 @@ class player_info(minqlx.Plugin):
 
         info.append("^7quit ^6{}^7％".format(round(left/(games_here_p)*100)))
 
-        info.append("^3{} ^7{}ELO: ^6{}^7".format(self.game.type_short.upper(),'b' if self.get_cvar('qlx_elo_api') == 'elo_b' else '', elo, games))
+        info.append("^3{} ^7{}ELO: ^6{}^7".format(self.game.type_short.upper(),'b' if self.get_cvar('qlx_balanceApi') == 'elo_b' else '', elo, games))
 
         return minqlx.CHAT_CHANNEL.reply("^6{}^7: ".format(name) + "^7, ".join(info) + "^7.")
 
