@@ -2,6 +2,9 @@
 # Copyright (c) 2016 iouonegirl
 # https://github.com/dsverdlo/minqlx-plugins
 #
+# You are free to modify this plugin to your custom,
+# except for the version command related code.
+#
 # Its purpose is to detect rapers and give them fair handicaps.
 # The detection rules have been intensely discussed and finetuned,
 # and can be found on station.boards.net (home forum of the bus station).
@@ -18,7 +21,7 @@ import datetime
 import threading
 from math import floor
 
-VERSION = "v0.44"
+VERSION = "v0.46"
 
 
 # From which percentage we classify a rape.
@@ -75,6 +78,10 @@ class anti_rape(minqlx.Plugin):
         # Real scores for handicapped people steam_id:realscore
         self.realscores = {}
         self.realdamage = {}
+
+        # List of players that have just joined. Start of round will empty this.
+        # Ignore the players at the end of the round that are in here
+        self.just_joined = []
 
         # Track when we are in round countdown (to compensate self-kills)
         self.round_countdown = True
@@ -136,6 +143,8 @@ class anti_rape(minqlx.Plugin):
             self.scores_snapshot[player.steam_id] = [new, 0]
             self.realscores[player.steam_id] = 0
             self.realdamage[player.steam_id] = 0
+            if not player.steam_id in self.just_joined:
+                self.just_joined.append(player.steam_id)
 
         # If a player specs during the match, remove his counters
         if new in ['spec', 'free']:
@@ -206,6 +215,7 @@ class anti_rape(minqlx.Plugin):
             self.realscores[victim.steam_id] = self.realscores.get(victim.steam_id, 0) - 1
 
     def handle_round_start(self, round_number):
+        self.just_joined = []
         self.round_countdown = False
 
     # On round end check if we need to check for rapist warnings
@@ -288,9 +298,10 @@ class anti_rape(minqlx.Plugin):
             if _p.steam_id not in self.rounds_played:
                 self.rounds_played[_p.steam_id] = 0
 
-        # Increase all the round counters:
+        # Increase all the round counters (except people that just joined during a round)
         for _id in self.rounds_played:
-            self.rounds_played[_id] += 1
+            if not _id in self.just_joined:
+                self.rounds_played[_id] += 1
 
         # Update the realscores
         update_realscores(teams)
