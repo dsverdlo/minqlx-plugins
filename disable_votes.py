@@ -18,7 +18,7 @@ VERSION = "v0.7"
 class disable_votes(minqlx.Plugin):
 
     def __init__(self):
-        self.add_cvar_once("qlx_disabled_votes_midgame", "map, teamsize")
+        self.set_cvar_once("qlx_disabled_votes_midgame", "map, teamsize")
         self.add_hook("vote_called", self.handle_vote)
         self.add_command("v_disable_votes", self.cmd_version)
 
