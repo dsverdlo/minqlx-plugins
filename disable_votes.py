@@ -12,7 +12,7 @@
 
 import minqlx
 
-VERSION = "v0.7"
+VERSION = "v0.8"
 
 
 class disable_votes(minqlx.Plugin):
