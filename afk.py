@@ -11,19 +11,18 @@
 # Uses:
 # - qlx_afk_warning_seconds "10"
 # - qlx_afk_detection_seconds "20"
+# - qlx_afk_put_to_spec "1"
 
 
 import minqlx
 import threading
 import time
 
-VERSION = "v0.3"
+VERSION = "v0.4"
 
 VAR_WARNING = "qlx_afk_warning_seconds"
 VAR_DETECTION = "qlx_afk_detection_seconds"
-
-SPEC_AFK = False # True or False
-
+VAR_PUT_SPEC = "qlx_afk_put_to_spec"
 
 # Interval for the thread to update positions. Default = 0.33
 interval = 0.33
@@ -35,10 +34,12 @@ class afk(minqlx.Plugin):
         # Set required cvars once. DONT EDIT THEM HERE BUT IN SERVER.CFG
         self.set_cvar_once(VAR_WARNING, "10")
         self.set_cvar_once(VAR_DETECTION, "20")
+        self.set_cvar_once(VAR_PUT_SPEC, "1")
 
         # Get required cvars
         self.warning = int(self.get_cvar(VAR_WARNING))
         self.detection = int(self.get_cvar(VAR_DETECTION))
+        self.put_to_spec = int(self.get_cvar(VAR_PUT_SPEC))
 
         # steamid : [position, seconds]
         self.positions = {}
@@ -142,7 +143,7 @@ class afk(minqlx.Plugin):
             else:
                 break
         self.punished.remove(player)
-        if SPEC_AFK: player.put('spectator')
+        if self.put_to_spec: player.put('spectator')
         return
 
 
