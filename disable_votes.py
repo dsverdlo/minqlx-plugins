@@ -6,19 +6,19 @@
 # except for the version command related code.
 #
 # This plugin disables certain votes during a game
+#
+# Uses
+# - qlx_disabled_votes_midgame "map, teamsize"
 
 import minqlx
 
-VERSION = "v0.6"
+VERSION = "v0.7"
 
-DISABLE_VOTES = {
-    'map': '^1You are not allowed to callvote maps during a match!',
-    'teamsize': '^1You are not allowed to change the teamsize during a match!'
-    }
 
 class disable_votes(minqlx.Plugin):
 
     def __init__(self):
+        self.add_cvar_once("qlx_disabled_votes_midgame", "map, teamsize")
         self.add_hook("vote_called", self.handle_vote)
         self.add_command("v_disable_votes", self.cmd_version)
 
@@ -30,9 +30,9 @@ class disable_votes(minqlx.Plugin):
 
         if self.game.state != "in_progress": return
 
-        for v in DISABLE_VOTES:
+        for v in self.get_cvar("qlx_disabled_votes_midgame", set):
             if v == vote:
-                self.msg(DISABLE_VOTES[v])
+                self.msg('^1You are not allowed to callvote {} during a match!'.format(v))
                 return minqlx.RET_STOP_ALL
 
 

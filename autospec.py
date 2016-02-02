@@ -5,7 +5,7 @@
 # You are free to modify this plugin to your custom,
 # except for the version command related code.
 #
-# Thanks to Minkyn for his assitance.
+# Thanks to Minkyn for his assistance.
 #
 # Its purpose if to force the last player to spectate
 # Algorithm: http://i.imgur.com/8P60gRq.png
