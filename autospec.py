@@ -16,7 +16,7 @@
 import minqlx
 import time
 
-VERSION = "v0.13"
+VERSION = "v0.14"
 
 class autospec(minqlx.Plugin):
     def __init__(self):
@@ -75,8 +75,7 @@ class autospec(minqlx.Plugin):
 
 
 
-
-    @minqlx.delay(9.8)
+    @minqlx.thread
     def balance_before_start(self, roundnumber):
         def is_even(n):
             return n % 2 == 0
@@ -84,6 +83,12 @@ class autospec(minqlx.Plugin):
         def red_min_blue():
             t = self.teams()
             return len(t['red']) - len(t['blue'])
+
+        # Wait until round almost starts
+        countdown = int(self.get_cvar('g_roundWarmupDelay'))
+        if self.game.type_short == "ft":
+            countdown = int(self.get_cvar('g_freezeRoundDelay'))
+        time.sleep(max(countdown / 1000 - 0.3, 0))
 
         # Grab the teams
         teams = self.teams()
