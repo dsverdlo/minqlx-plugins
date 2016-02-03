@@ -118,7 +118,6 @@ class mybalance(minqlx.Plugin):
         self.add_command(("elomax", "maxelo"), self.cmd_max_elo, 3, usage="[ELO]")
         self.add_command(("rankings", "elotype"), self.cmd_elo_type, usage="[A|B]")
         self.add_hook("team_switch", self.handle_team_switch)
-        self.add_hook("round_start", self.handle_round_start)
         self.add_hook("round_end", self.handle_round_end)
         self.add_hook("round_countdown", self.handle_round_count)
         self.add_hook("player_connect", self.handle_player_connect)
