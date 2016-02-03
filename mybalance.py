@@ -35,7 +35,7 @@ import os
 
 from minqlx.database import Redis
 
-VERSION = "v0.40"
+VERSION = "v0.41"
 
 # Add a little bump to the boundary for regulars.
 # This list must be in ordered lists of [games_needed, elo_bump] from small to big
@@ -191,7 +191,14 @@ class mybalance(minqlx.Plugin):
             return minqlx.RET_USAGE
 
     def cmd_elo_limit(self, player, msg, channel):
-        channel.reply("^7The server only allows players with an elo between ^6{}^7 and ^6{}^7.".format(self.ELO_MIN, self.ELO_MAX))
+        if int(self.get_cvar('qlx_elo_block_connecters')):
+            self.msg("^7The server will block players upon connection who fall outside [^6{}^7-^6{}^7].".format(self.ELO_MIN, self.ELO_MAX))
+        elif int(self.get_cvar('qlx_elo_kick')):
+            self.msg("^7The server will kick players who fall outside [^6{}^7-^6{}^7].".format(self.ELO_MIN, self.ELO_MAX))
+        else:
+            self.msg("^7Players who don't have a skill rating between ^6{} ^7and ^6{} ^7are only allowed to spec.".format(self.ELO_MIN, self.ELO_MAX))
+
+
 
     # View a list of kicked players with their ID and elo
     def cmd_elo_kicked(self, player, msg, channel):
@@ -570,6 +577,8 @@ class mybalance(minqlx.Plugin):
             else:
                 minqlx.CHAT_CHANNEL.reply("^7Uneven teams detected! At round start I will automatically ^6{} ^7the odd player!".format(self.last_action))
 
+        self.balance_before_start(round_number)
+
     def cmd_prevent_last(self, player, msg, channel):
         """A command to prevent the last player on a team being kicked if
         teams are magically balanced """
@@ -863,7 +872,6 @@ class mybalance(minqlx.Plugin):
 
 
     def evaluate_elo_games(self, player, elo, games):
-        if games < self.GAMES_NEEDED: return
 
         key = RATING_KEY.format(player.steam_id, self.game.type_short)
         if (key in self.db):
@@ -878,15 +886,22 @@ class mybalance(minqlx.Plugin):
         except:
             left = 0
 
-
         max_elo = self.ELO_MAX
         for threshold, boundary in reversed(BOUNDARIES):
             if left + completed >= threshold:
                 max_elo += boundary
                 break
 
-        if elo < self.ELO_MIN: return ['low', elo]
-        if max_elo < elo: return ['high', elo]
+        if elo < self.ELO_MIN:
+            if games < self.GAMES_NEEDED:
+                self.msg("{}'s elo ({}) is below the server limit ({}), but they don't have enough tracked games yet ({}/{}).".format(player.name, elo, self.ELO_MIN, games, self.GAMES_NEEDED))
+                return
+            return ['low', elo]
+        if max_elo < elo:
+            if games < self.GAMES_NEEDED:
+                self.msg("{}'s elo ({}) is above the server limit ({}), but they don't have enough tracked games yet ({}/{}).".format(player.name, elo, self.ELO_MAX, games, self.GAMES_NEEDED))
+                return
+            return ['high', elo]
 
     def find_by_name_or_id(self, player, target):
         # Find players returns a list of name-matching players
