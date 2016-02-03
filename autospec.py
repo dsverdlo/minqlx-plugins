@@ -17,7 +17,7 @@ import minqlx
 import time
 import requests
 
-VERSION = "v0.15"
+VERSION = "v0.16"
 
 class autospec(minqlx.Plugin):
     def __init__(self):
@@ -72,8 +72,9 @@ class autospec(minqlx.Plugin):
                 n = last.name if n == 1 else "{} players".format(n)
                 self.msg("^6Uneven teams detected!^7 Server will move {} to {}".format(n, to))
             else:
-                n = 'lowest player' if n == 1 else '{} lowest players'.format(n)
-                self.msg("^6Uneven teams detected!^7 Server will spec {} and move the {} to {}".format(last.name, n, to))
+                m = 'lowest player' if n == 1 else '{} lowest players'.format(n)
+                m = " and move the {} to {}".format(m, to) if n else ''
+                self.msg("^6Uneven teams detected!^7 Server will auto spec {}{}.".format(last.name, m))
 
         self.balance_before_start(round_number)
 
