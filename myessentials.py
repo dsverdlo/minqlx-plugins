@@ -19,6 +19,9 @@
 #Some essential functions.
 #
 # Extended by iouonegirl(@gmail.com) to take names for commands instead of ID
+#
+# You are free to modify this plugin to your custom,
+# except for the version command related code.
 
 import minqlx
 import minqlx.database
@@ -27,6 +30,7 @@ import itertools
 import time
 import re
 import os
+import requests
 
 from random import randint
 from collections import deque
@@ -34,7 +38,7 @@ from collections import deque
 DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 TIME_FORMAT = "%H:%M:%S"
 
-VERSION = "v0.7"
+VERSION = "v0.9"
 
 class myessentials(minqlx.Plugin):
     database = minqlx.database.Redis
@@ -125,6 +129,10 @@ class myessentials(minqlx.Plugin):
 
     def handle_player_connect(self, player):
         self.update_player(player)
+        # If admin, check version number
+        if self.db.has_permission(player, 5):
+            self.check_version(player=player)
+
 
     def handle_player_disconnect(self, player, reason):
         self.recent_dcs.appendleft((player, time.time()))
@@ -810,8 +818,31 @@ class myessentials(minqlx.Plugin):
 
 
     def cmd_version(self, player, msg, channel):
-        plugin = self.__class__.__name__
-        channel.reply("^7Currently using ^3iou^7one^4girl^7's ^6{}^7 plugin version ^6{}^7.".format(plugin, VERSION))
+        self.check_version(channel=channel)
+
+    @minqlx.thread
+    def check_version(self, player=None, channel=None):
+        url = "https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/{}.py".format(self.__class__.__name__)
+        res = requests.get(url)
+        last_status = res.status_code
+        if res.status_code != requests.codes.ok: return
+        for line in res.iter_lines():
+            if line.startswith(b'VERSION'):
+                line = line.replace(b'VERSION = ', b'')
+                line = line.replace(b'"', b'')
+                # If called manually and outdated
+                if channel and VERSION.encode() != line:
+                    channel.reply("^7Currently using ^3iou^7one^4girl^7's ^6{}^7 plugin ^1outdated^7 version ^6{}^7.".format(self.__class__.__name__, VERSION))
+                # If called manually and alright
+                elif channel and VERSION.encode() == line:
+                    channel.reply("^7Currently using ^3iou^7one^4girl^7's latest ^6{}^7 plugin version ^6{}^7.".format(self.__class__.__name__, VERSION))
+                # If routine check and it's not alright.
+                elif player and VERSION.encode() != line:
+                    time.sleep(15)
+                    try:
+                        player.tell("^3Plugin update alert^7:^6 {}^7's latest version is ^6{}^7 and you're using ^6{}^7!".format(self.__class__.__name__, line.decode(), VERSION))
+                    except Exception as e: minqlx.console_command("echo {}".format(e))
+                return
 
 
     def find_by_name_or_id(self, player, target):

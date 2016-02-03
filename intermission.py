@@ -15,10 +15,12 @@
 
 
 import minqlx
+import time
+import requests
 
-VERSION = "v0.9"
+VERSION = "v0.10"
 
-# These songs will be looped one by one
+# These songs will be looped one by one. Don't forget to remove the #'s if you want to use songs
 SONGS = [
     #"sound/songname/songtitle.ogg",
     #"sound/songname/songtitle.ogg",
@@ -30,6 +32,7 @@ class intermission(minqlx.Plugin):
         self.index = 0
 
         self.add_hook("game_end", self.handle_game_end)
+        self.add_hook("player_connect", self.handle_player_connect)
         self.add_command("v_intermission", self.cmd_version)
 
     @minqlx.delay(0.3)
@@ -51,6 +54,33 @@ class intermission(minqlx.Plugin):
         # Increase the counter so next round the next sound will be played
         self.index += 1
 
+    def handle_player_connect(self, player):
+        if self.db.has_permission(player, 5):
+            self.check_version(player=player)
+
     def cmd_version(self, player, msg, channel):
-        plugin = self.__class__.__name__
-        channel.reply("^7Using ^3iou^7one^4girl^7's edit version ^6{}^7 of roasticle's ^6{}^7 plugin.".format(VERSION, plugin))
+        self.check_version(channel=channel)
+
+    @minqlx.thread
+    def check_version(self, player=None, channel=None):
+        url = "https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/{}.py".format(self.__class__.__name__)
+        res = requests.get(url)
+        last_status = res.status_code
+        if res.status_code != requests.codes.ok: return
+        for line in res.iter_lines():
+            if line.startswith(b'VERSION'):
+                line = line.replace(b'VERSION = ', b'')
+                line = line.replace(b'"', b'')
+                # If called manually and outdated
+                if channel and VERSION.encode() != line:
+                    channel.reply("^7Currently using ^3iou^7one^4girl^7's ^6{}^7 plugin ^1outdated^7 version ^6{}^7.".format(self.__class__.__name__, VERSION))
+                # If called manually and alright
+                elif channel and VERSION.encode() == line:
+                    channel.reply("^7Currently using ^3iou^7one^4girl^7's latest ^6{}^7 plugin version ^6{}^7.".format(self.__class__.__name__, VERSION))
+                # If routine check and it's not alright.
+                elif player and VERSION.encode() != line:
+                    time.sleep(15)
+                    try:
+                        player.tell("^3Plugin update alert^7:^6 {}^7's latest version is ^6{}^7 and you're using ^6{}^7!".format(self.__class__.__name__, line.decode(), VERSION))
+                    except Exception as e: minqlx.console_command("echo {}".format(e))
+                return

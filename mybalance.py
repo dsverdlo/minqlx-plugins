@@ -5,6 +5,8 @@
 # You are free to modify this plugin to your custom,
 # except for the version command related code.
 #
+# Thanks to Minkyn for his input on this plugin.
+#
 # Its purpose is to balance the teams out. For now we don't
 # have ways to compare players, so that might be added later
 # for now it can move players by name, and perform an action
@@ -33,14 +35,14 @@ import os
 
 from minqlx.database import Redis
 
-VERSION = "v0.38"
+VERSION = "v0.39"
 
 # Add a little bump to the boundary for regulars.
 # This list must be in ordered lists of [games_needed, elo_bump] from small to big
 # E.g. [ [25,100],  [50,200],  [75,400],  [100,800] ]
 # --> if a player has played 60 games on our server -> he reaches [50,200] and the upper elo limit adds 200
 # To disable service: set BOUNDARIES = []
-BOUNDARIES = [ [25,100],  [50,200],  [75,400],  [100,800] ]
+BOUNDARIES = [ [50,100], [75,200], [100,400] ]
 
 # If this is True, a message will be printed on the screen of the person who should spec when teams are uneven
 CP = True
@@ -385,11 +387,38 @@ class mybalance(minqlx.Plugin):
 
 
     def cmd_version(self, player, msg, channel):
-        plugin = self.__class__.__name__
-        channel.reply("^7Currently using ^3iou^7one^4girl^7's ^6{}^7 plugin version ^6{}^7.".format(plugin, VERSION))
+        self.check_version(channel=channel)
+
+    @minqlx.thread
+    def check_version(self, player=None, channel=None):
+        url = "https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/{}.py".format(self.__class__.__name__)
+        res = requests.get(url)
+        last_status = res.status_code
+        if res.status_code != requests.codes.ok: return
+        for line in res.iter_lines():
+            if line.startswith(b'VERSION'):
+                line = line.replace(b'VERSION = ', b'')
+                line = line.replace(b'"', b'')
+                # If called manually and outdated
+                if channel and VERSION.encode() != line:
+                    channel.reply("^7Currently using ^3iou^7one^4girl^7's ^6{}^7 plugin ^1outdated^7 version ^6{}^7.".format(self.__class__.__name__, VERSION))
+                # If called manually and alright
+                elif channel and VERSION.encode() == line:
+                    channel.reply("^7Currently using ^3iou^7one^4girl^7's latest ^6{}^7 plugin version ^6{}^7.".format(self.__class__.__name__, VERSION))
+                # If routine check and it's not alright.
+                elif player and VERSION.encode() != line:
+                    time.sleep(15)
+                    try:
+                        player.tell("^3Plugin update alert^7:^6 {}^7's latest version is ^6{}^7 and you're using ^6{}^7!".format(self.__class__.__name__, line.decode(), VERSION))
+                    except Exception as e: minqlx.console_command("echo {}".format(e))
+                return
 
 
     def handle_player_connect(self, player):
+        # If admin, check version number
+        if self.db.has_permission(player, 5):
+            self.check_version(player=player)
+
         # If you are not an exception, you must be checked for elo limit
         if not (player.steam_id in self.exceptions):
 
@@ -445,44 +474,64 @@ class mybalance(minqlx.Plugin):
                 player.center_print("^6You do not meet the ELO requirements to play on this server, {}".format(kickmsg))
 
 
+    def handle_round_count(self, roundnumber):
+        self.balance_before_start(roundnumber)
 
-    def handle_round_start(self, round_number):
+    @minqlx.thread
+    def balance_before_start(self, roundnumber):
+        def is_even(n):
+            return n % 2 == 0
 
-        # If teams are even, just return
+        # Calculate the difference between teams (optional excluded teams argument)
+        def red_min_blue(t = False):
+            if not t: t = self.teams()
+            return len(t['red']) - len(t['blue'])
+
+        # Return a copy of the teams without the given player
+        def exclude_player(p):
+            t = self.teams().copy()
+            if p in t['red']: t['red'].remove(p)
+            if p in t['blue']: t['blue'].remove(p)
+            return t
+
+        # Wait until round almost starts
+        countdown = int(self.get_cvar('g_roundWarmupDelay'))
+        if self.game.type_short == "ft":
+            countdown = int(self.get_cvar('g_freezeRoundDelay'))
+        time.sleep(max(countdown / 1000 - 0.3, 0))
+
+        # Grab the teams
         teams = self.teams()
-        if self.is_even(len(teams["red"] + teams["blue"])):
-            return minqlx.RET_STOP_EVENT
+        player_count = len(teams["red"] + teams["blue"])
 
         # If it is the last player, don't do this and let the game finish normally
-        if len(teams["red"] + teams["blue"]) == 1:
+        if player_count == 1:
             return
 
-        # Get last person
-        lowest_player = self.algo_get_last()
+        # If the last person is prevented or ignored to spec, we need to exclude him to balance the rest.
+        excluded_teams = False
 
-        # It should never happen that there is no player returned, but just in case:
-        if not lowest_player:
-            minqlx.CHAT_CHANNEL.reply("^7Server admin please consult the log file.")
-            minqlx.console_command("echo Error: last person in mybalance.py")
-            return minqlx.RET_STOP_ALL
+        # While there is a difference in teams of more than 1
+        while red_min_blue(excluded_teams) >= 1:
+            diff = red_min_blue(excluded_teams)
+            last = self.algo_get_last(excluded_teams)
 
-        # Perform action if it hasnt been prevented for reasons
-        if not self.prevent:
-            if self.last_action == "slay":
-                #lowest_player.slay()
-                lowest_player.health = 0 # slay method wasnt silent
-                minqlx.CHAT_CHANNEL.reply("^6{} ^7has been slain for even teams! No need to spec.".format(lowest_player.name))
-                self.db[LAST_KEY] = lowest_player.steam_id
-            elif self.last_action == "spec":
-                lowest_player.put("spectator")
-                minqlx.send_server_command(lowest_player.id, "cp \"\n\n\nYou were moved to spec to keep the teams even.\"")
-                minqlx.CHAT_CHANNEL.reply("^6{} ^7was moved to spec to even teams!".format(lowest_player.name))
+            if is_even(diff): # one team has an even amount of people more than the other
 
-            elif self.last_action == "ignore":
-                minqlx.CHAT_CHANNEL.reply("^7The bot is set to not perform action on uneven teams.")
+                to, fr = ['blue','red'] if diff > 0 else ['red', 'blue']
+                last.put(to)
+                self.msg("^6Uneven teams action^7: Moved {} from {} to {}".format(last.name, fr, to))
 
-        else:
-            minqlx.CHAT_CHANNEL.reply("^7An admin has prevented the server to ^6{} ^7{}^7!".format(self.last_action, lowest_player.name))
+            else: # there is an odd number of uneven, then one will have to spec
+
+                if self.prevent or self.last_action == "ignore":
+                    excluded_teams = exclude_player(last)
+                    self.msg("^6Uneven teams^7: {} will not be moved to spec".format(last.name))
+                else:
+                    last.put("spectator")
+                    self.msg("^6Uneven teams action^7: {} was moved to spec to even teams!".format(last.name))
+
+
 
 
 
@@ -667,12 +716,13 @@ class mybalance(minqlx.Plugin):
             else:
                 player.tell("Sorry, but no players matched your tokens.")
 
-    def algo_get_last(self):
+    def algo_get_last(self, excluded_teams = False):
         # Find the player to be acted upon. If there are more than 1 rounds
         # played, we will take the lowest score. Otherwise the last to join
 
         # If teams are even, just return
-        teams = self.teams()
+        teams = excluded_teams or self.teams()
+
 
         # See which team is bigger than the other
         if len(teams["red"]) < len(teams["blue"]):
@@ -701,6 +751,7 @@ class mybalance(minqlx.Plugin):
             bigger_team.sort(key = lambda el: self.find_time(el), reverse=True)
             lowest_player = bigger_team[0]
 
+        minqlx.console_command("echo Picked {} from the {} team.".format(lowest_player.name, lowest_player.team))
         return lowest_player
 
 
