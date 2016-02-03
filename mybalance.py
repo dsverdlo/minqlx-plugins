@@ -35,7 +35,7 @@ import os
 
 from minqlx.database import Redis
 
-VERSION = "v0.39"
+VERSION = "v0.40"
 
 # Add a little bump to the boundary for regulars.
 # This list must be in ordered lists of [games_needed, elo_bump] from small to big
