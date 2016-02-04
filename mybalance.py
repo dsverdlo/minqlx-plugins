@@ -35,7 +35,7 @@ import os
 
 from minqlx.database import Redis
 
-VERSION = "v0.42"
+VERSION = "v0.43"
 
 # Add a little bump to the boundary for regulars.
 # This list must be in ordered lists of [games_needed, elo_bump] from small to big
@@ -567,13 +567,11 @@ class mybalance(minqlx.Plugin):
         teams = self.teams()
         player_count = len(teams["red"] + teams["blue"])
 
-        if player_count < int(self.get_cvar("qlx_autospec_minplayers")):
-            return
 
         # If there is a difference in teams of more than 1
         diff = red_min_blue()
         to, fr = ['blue', 'red'] if diff > 0 else ['red','blue']
-        last = self.help_get_last()
+        last = self.algo_get_last()
         n = int(abs(diff) / 2)
         if abs(diff) >= 1:
             if is_even(diff):
