@@ -35,7 +35,7 @@ import os
 
 from minqlx.database import Redis
 
-VERSION = "v0.41"
+VERSION = "v0.42"
 
 # Add a little bump to the boundary for regulars.
 # This list must be in ordered lists of [games_needed, elo_bump] from small to big
@@ -480,8 +480,6 @@ class mybalance(minqlx.Plugin):
                 player.center_print("^6You do not meet the ELO requirements to play on this server, {}".format(kickmsg))
 
 
-    def handle_round_count(self, roundnumber):
-        self.balance_before_start(roundnumber)
 
     @minqlx.thread
     def balance_before_start(self, roundnumber):
@@ -558,24 +556,33 @@ class mybalance(minqlx.Plugin):
         self.prevent = False
 
     def handle_round_count(self, round_number):
+        def is_even(n):
+            return n % 2 == 0
 
-        if LAST_KEY in self.db:
-            del self.db[LAST_KEY]
+        def red_min_blue():
+            t = self.teams()
+            return len(t['red']) - len(t['blue'])
 
-        # If teams are even, just return
+        # Grab the teams
         teams = self.teams()
-        if self.is_even(len(teams["red"] + teams["blue"])):
+        player_count = len(teams["red"] + teams["blue"])
+
+        if player_count < int(self.get_cvar("qlx_autospec_minplayers")):
             return
 
-        if self.last_action == "ignore":
-            minqlx.CHAT_CHANNEL.reply("^7Uneven teams detected, but I am programmed to ignore it. Admins can: ^2!last spec|slay")
-        else:
-            target = self.algo_get_last()
-            if target:
-                if CP: minqlx.send_server_command(target.id, "cp \"{}\"".format(CP_MESS))
-                minqlx.CHAT_CHANNEL.reply("^7Uneven teams detected! At round start I will automatically ^6{} ^7{}!".format(self.last_action, target.name))
+        # If there is a difference in teams of more than 1
+        diff = red_min_blue()
+        to, fr = ['blue', 'red'] if diff > 0 else ['red','blue']
+        last = self.help_get_last()
+        n = int(abs(diff) / 2)
+        if abs(diff) >= 1:
+            if is_even(diff):
+                n = last.name if n == 1 else "{} players".format(n)
+                self.msg("^6Uneven teams detected!^7 At round start i'll move {} to {}".format(n, to))
             else:
-                minqlx.CHAT_CHANNEL.reply("^7Uneven teams detected! At round start I will automatically ^6{} ^7the odd player!".format(self.last_action))
+                m = 'lowest player' if n == 1 else '{} lowest players'.format(n)
+                m = " and move the {} to {}".format(m, to) if n else ''
+                self.msg("^6Uneven teams detected!^7 Server will auto spec {}{}.".format(last.name, m))
 
         self.balance_before_start(round_number)
 
