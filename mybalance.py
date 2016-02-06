@@ -35,7 +35,7 @@ import os
 
 from minqlx.database import Redis
 
-VERSION = "v0.43"
+VERSION = "v0.45"
 
 # Add a little bump to the boundary for regulars.
 # This list must be in ordered lists of [games_needed, elo_bump] from small to big
@@ -502,7 +502,7 @@ class mybalance(minqlx.Plugin):
         countdown = int(self.get_cvar('g_roundWarmupDelay'))
         if self.game.type_short == "ft":
             countdown = int(self.get_cvar('g_freezeRoundDelay'))
-        time.sleep(max(countdown / 1000 - 0.3, 0))
+        time.sleep(max(countdown / 1000 - 0.5, 0))
 
         # Grab the teams
         teams = self.teams()
@@ -516,7 +516,8 @@ class mybalance(minqlx.Plugin):
         excluded_teams = False
 
         # While there is a difference in teams of more than 1
-        while red_min_blue(excluded_teams) >= 1:
+        while abs(red_min_blue(excluded_teams)) >= 1:
+
             diff = red_min_blue(excluded_teams)
             last = self.algo_get_last(excluded_teams)
 
@@ -841,13 +842,13 @@ class mybalance(minqlx.Plugin):
                 self.plugin.msg("^7Sorry, {} your elo ({}) doesn't meet the server requirements, {}".format(self.player.name, self.elo, kickmsg))
             def try_mute(self):
                 time.sleep(4)
-                self.player = self.plugin.find_player(self.player.id)[0]
+                self.player = self.plugin.find_player(self.player.name)[0]
                 if not self.player: self.stop()
                 if self.go and self.plugin.get_cvar("qlx_elo_kick") == "1": self.player.mute()
             def try_kick(self):
                 if self.plugin.get_cvar("qlx_elo_kick") == "0": return
                 time.sleep(14)
-                self.player = self.plugin.find_player(self.player.id)[0]
+                self.player = self.plugin.find_player(self.player.name)[0]
                 if not self.player: self.stop()
                 if self.go: self.player.kick("^1GOT KICKED!^7 Elo ({}) was too {} for this server.".format(self.elo, self.highlow))
             def run(self):
