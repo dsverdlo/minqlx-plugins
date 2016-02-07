@@ -35,7 +35,7 @@ import os
 
 from minqlx.database import Redis
 
-VERSION = "v0.45"
+VERSION = "v0.46"
 
 # Add a little bump to the boundary for regulars.
 # This list must be in ordered lists of [games_needed, elo_bump] from small to big
@@ -81,7 +81,7 @@ class mybalance(minqlx.Plugin):
         self.set_cvar_once("qlx_elo_games_needed", "10")
         self.set_cvar_once("qlx_balanceApi", "elo")
         self.set_cvar_once("qlx_elo_kick", "1")
-        self.set_cvar_once("qlx_elo_block_connectors", "0")
+        self.set_cvar_once("qlx_elo_block_connecters", "0")
 
         # get cvars
         self.ELO_MIN = int(self.get_cvar("qlx_elo_limit_min"))
