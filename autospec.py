@@ -17,7 +17,7 @@ import minqlx
 import time
 import requests
 
-VERSION = "v0.16"
+VERSION = "v0.17"
 
 class autospec(minqlx.Plugin):
     def __init__(self):
@@ -29,6 +29,7 @@ class autospec(minqlx.Plugin):
 
         self.add_command("v_autospec", self.cmd_version)
         self.add_hook("round_countdown", self.handle_round_count)
+        self.add_hook("round_start", self.handle_round_start)
         self.add_hook("player_connect", self.handle_player_connect)
         self.add_hook("player_disconnect", self.handle_player_disconnect)
 
@@ -78,7 +79,14 @@ class autospec(minqlx.Plugin):
 
         self.balance_before_start(round_number)
 
-
+    # If there is no round delay, then round_count hasnt been called.
+    def handle_round_start(self, round_number):
+        if self.game.type_short == "ft":
+            if not int(self.get_cvar('g_freezeRoundDelay')):
+                self.handle_round_count(round_number)
+        else:
+            if not int(self.get_cvar('g_roundWarmupDelay')):
+                self.handle_round_count(round_number)
 
     @minqlx.thread
     def balance_before_start(self, roundnumber):
