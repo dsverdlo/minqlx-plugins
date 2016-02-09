@@ -35,7 +35,7 @@ import os
 
 from minqlx.database import Redis
 
-VERSION = "v0.46"
+VERSION = "v0.47"
 
 # Add a little bump to the boundary for regulars.
 # This list must be in ordered lists of [games_needed, elo_bump] from small to big
@@ -164,7 +164,7 @@ class mybalance(minqlx.Plugin):
 
     def cmd_min_elo(self, player, msg, channel):
         if len(msg) < 2:
-            channel.reply("^7The minimum elo required for this server is: ^6{}^7.".format(self.ELO_MIN))
+            channel.reply("^7The minimum skill rating required for this server is: ^6{}^7.".format(self.ELO_MIN))
         elif len(msg) < 3:
             try:
                 new_elo = int(msg[1])
@@ -172,13 +172,13 @@ class mybalance(minqlx.Plugin):
             except:
                 return minqlx.RET_USAGE
             self.ELO_MIN = new_elo
-            channel.reply("^7The server minimum elo has been temporarily set to: ^6{}^7.".format(new_elo))
+            channel.reply("^7The server minimum skill rating has been temporarily set to: ^6{}^7.".format(new_elo))
         else:
             return minqlx.RET_USAGE
 
     def cmd_max_elo(self, player, msg, channel):
         if len(msg) < 2:
-            channel.reply("^7The maximum elo set for this server is: ^6{}^7.".format(self.ELO_MAX))
+            channel.reply("^7The maximum skill rating set for this server is: ^6{}^7.".format(self.ELO_MAX))
         elif len(msg) < 3:
             try:
                 new_elo = int(msg[1])
@@ -186,7 +186,7 @@ class mybalance(minqlx.Plugin):
             except:
                 return minqlx.RET_USAGE
             self.ELO_MAX = new_elo
-            channel.reply("^7The server maximum elo has been temporarily set to: ^6{}^7.".format(new_elo))
+            channel.reply("^7The server maximum skill ratings has been temporarily set to: ^6{}^7.".format(new_elo))
         else:
             return minqlx.RET_USAGE
 
@@ -227,7 +227,7 @@ class mybalance(minqlx.Plugin):
                 del self.kicked[sid]
             else:
                 n -= 1
-        channel.reply("^7Successfully removed ^6{}^7 (elo {}) from the list.".format(name, elo))
+        channel.reply("^7Successfully removed ^6{}^7 (glicko {}) from the list.".format(name, elo))
 
     def cmd_nokick(self, player, msg, channel):
         def dontkick(kickthread):
@@ -382,6 +382,7 @@ class mybalance(minqlx.Plugin):
                 with open(abs_file_path,"a+") as f:
                     f.write("# This is a commented line because it starts with a '#'\n")
                     f.write("# Every exception on a newline, format: STEAMID NAME\n")
+                    f.write("# The NAME is for a mental reference and may not contain spaces\n")
                     f.write("76561198045154609 iouonegirl\n")
                 minqlx.CHAT_CHANNEL.reply("^6mybalance plugin^7: No exception list found, so I made one myself.")
             except:
@@ -476,8 +477,8 @@ class mybalance(minqlx.Plugin):
                     kickmsg = "so you'll be kicked shortly..."
                 else:
                     kickmsg = "but you are free to keep watching."
-                player.tell("^6You do not meet the ELO requirements to play on this server, {}".format(kickmsg))
-                player.center_print("^6You do not meet the ELO requirements to play on this server, {}".format(kickmsg))
+                player.tell("^6You do not meet the skill rating requirements to play on this server, {}".format(kickmsg))
+                player.center_print("^6You do not meet the skill rating requirements to play on this server, {}".format(kickmsg))
 
 
 
@@ -801,7 +802,7 @@ class mybalance(minqlx.Plugin):
                     return callback(player, _gt["elo"], _gt["games"])
 
 
-        minqlx.console_command("echo Problem fetching elo: " + str(last_status))
+        minqlx.console_command("echo Problem fetching glicko: " + str(last_status))
         return
 
     def callback_elo(self, player, elo = 0, games=0):
@@ -817,9 +818,9 @@ class mybalance(minqlx.Plugin):
         key = RATING_KEY.format(sid, self.game.type_short)
         if key in self.db:
             dbelo = int(self.db[key])
-            elos.append("^7local {} elo: ^6{}".format(self.game.type_short.upper(), dbelo))
+            elos.append("^7local {} glicko: ^6{}".format(self.game.type_short.upper(), dbelo))
         #if elo and games:
-        elos.append("^7qlstats.net {} elo: ^6{} ({} games)".format(self.game.type_short.upper(), elo, games))
+        elos.append("^7qlstats.net {} glicko: ^6{} ({} games)".format(self.game.type_short.upper(), elo, games))
 
         if elos: minqlx.CHAT_CHANNEL.reply("^6{}".format(m) + " ^7, ".join(elos) + "^7.")
 
@@ -839,7 +840,7 @@ class mybalance(minqlx.Plugin):
                     kickmsg = "so you'll be ^6kicked ^7shortly..."
                 else:
                     kickmsg = "but you are free to keep watching."
-                self.plugin.msg("^7Sorry, {} your elo ({}) doesn't meet the server requirements, {}".format(self.player.name, self.elo, kickmsg))
+                self.plugin.msg("^7Sorry, {} your glicko ({}) doesn't meet the server requirements, {}".format(self.player.name, self.elo, kickmsg))
             def try_mute(self):
                 time.sleep(4)
                 self.player = self.plugin.find_player(self.player.name)[0]
@@ -850,7 +851,7 @@ class mybalance(minqlx.Plugin):
                 time.sleep(14)
                 self.player = self.plugin.find_player(self.player.name)[0]
                 if not self.player: self.stop()
-                if self.go: self.player.kick("^1GOT KICKED!^7 Elo ({}) was too {} for this server.".format(self.elo, self.highlow))
+                if self.go: self.player.kick("^1GOT KICKED!^7 Glicko ({}) was too {} for this server.".format(self.elo, self.highlow))
             def run(self):
                 self.try_mute()
                 self.try_mess()
@@ -900,12 +901,12 @@ class mybalance(minqlx.Plugin):
 
         if elo < self.ELO_MIN:
             if games < self.GAMES_NEEDED:
-                self.msg("{}'s elo ({}) is below the server limit ({}), but they don't have enough tracked games yet ({}/{}).".format(player.name, elo, self.ELO_MIN, games, self.GAMES_NEEDED))
+                self.msg("{}'s ({}) is below the server limit ({}), but insufficient tracked games ({}/{}).".format(player.name, elo, self.ELO_MIN, games, self.GAMES_NEEDED))
                 return
             return ['low', elo]
         if max_elo < elo:
             if games < self.GAMES_NEEDED:
-                self.msg("{}'s elo ({}) is above the server limit ({}), but they don't have enough tracked games yet ({}/{}).".format(player.name, elo, self.ELO_MAX, games, self.GAMES_NEEDED))
+                self.msg("{}'s ({}) is above the server limit ({}), but insufficient tracked games ({}/{}).".format(player.name, elo, self.ELO_MAX, games, self.GAMES_NEEDED))
                 return
             return ['high', elo]
 

@@ -32,7 +32,7 @@ LENGTH_REGEX = re.compile(r"(?P<number>[0-9]+) (?P<scale>seconds?|minutes?|hours
 TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 PLAYER_KEY = "minqlx:players:{}"
 
-VERSION = "v0.13"
+VERSION = "v0.14"
 
 class myban(minqlx.Plugin):
     def __init__(self):
@@ -306,7 +306,11 @@ class myban(minqlx.Plugin):
             channel.reply("I do not know ^6{}^7.".format(name))
             return
 
-        leaves = int(self.db[base_key + ":games_left"])
+        try:
+            leaves = int(self.db[base_key + ":games_left"])
+        except:
+            leaves = 0
+
         if leaves <= 0:
             channel.reply("^6{}^7's leaves are already at ^6{}^7.".format(name, leaves))
             return
