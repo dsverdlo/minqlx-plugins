@@ -5,6 +5,10 @@
 # You are free to modify this plugin to your custom,
 # except for the version command related code.
 #
+# The creative ideas for this plugin came from correspondance
+# with Gelenkbusfahrer and have been mainly discussed
+# station.boards.net, forum of the Bus Station server(s).
+#
 # Its purpose is to detect rapers and give them fair handicaps.
 # The detection rules have been intensely discussed and finetuned,
 # and can be found on station.boards.net (home forum of the bus station).
@@ -22,7 +26,7 @@ import threading
 import requests
 from math import floor
 
-VERSION = "v0.47"
+VERSION = "v0.48"
 
 
 # From which percentage we classify a rape.
