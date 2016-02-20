@@ -9,21 +9,25 @@
 #
 # Uses
 # - qlx_disabled_votes_midgame "map, teamsize"
+# - qlx_disabled_votes_permission "1"
 
 import minqlx
 import time
+import os
 import requests
 
-VERSION = "v0.9"
+VERSION = "v0.10"
 
 
 class disable_votes(minqlx.Plugin):
 
     def __init__(self):
         self.set_cvar_once("qlx_disabled_votes_midgame", "map, teamsize")
+        self.set_cvar_once("qlx_disabled_votes_permission", "1")
+
         self.add_hook("vote_called", self.handle_vote)
-        self.add_command("v_disable_votes", self.cmd_version)
         self.add_hook("player_connect", self.handle_player_connect)
+        self.add_command("v_disable_votes", self.cmd_version)
 
 
     def handle_vote(self, player, vote, args):
@@ -31,7 +35,7 @@ class disable_votes(minqlx.Plugin):
         if self.game.state != "in_progress": return
 
         for v in self.get_cvar("qlx_disabled_votes_midgame", set):
-            if v == vote:
+            if v == vote and not self.db.has_permission(player, self.get_cvar("qlx_disabled_votes_permission")):
                 self.msg('^1You are not allowed to callvote {} during a match!'.format(v))
                 return minqlx.RET_STOP_ALL
 
@@ -66,3 +70,4 @@ class disable_votes(minqlx.Plugin):
                         player.tell("^3Plugin update alert^7:^6 {}^7's latest version is ^6{}^7 and you're using ^6{}^7!".format(self.__class__.__name__, line.decode(), VERSION))
                     except Exception as e: minqlx.console_command("echo {}".format(e))
                 return
+
