@@ -5,7 +5,8 @@
 # You are free to modify this plugin to your custom,
 # except for the version command related code.
 #
-# Thanks to Minkyn for his input on this plugin.
+# Thanks to Bus Station, Minkyn and BarelyMiSSeD
+# for their input on this plugin.
 #
 # Its purpose is to balance the teams out. For now we don't
 # have ways to compare players, so that might be added later
@@ -21,8 +22,10 @@
 # - qlx_elo_limit_min "0"
 # - qlx_elo_limit_max "1600"
 # - qlx_elo_games_needed "10"
-# - qlx_elo_kick "1"
-# - qlx_elo_block_connecters "0"
+# - qlx_elo_kick "1"        (kick spectators after they joined)
+# - qlx_elo_block_connecters "0" (block players from connecting)
+# - qlx_mybalance_warmup_seconds "300" (delay in seconds for readyup messages. Set to -1 to 'disable')
+# - qlx_mybalance_warmup_interval "60" (interval in seconds for readyup messages)
 
 
 import minqlx
@@ -35,7 +38,7 @@ import os
 
 from minqlx.database import Redis
 
-VERSION = "v0.47"
+VERSION = "v0.50"
 
 # Add a little bump to the boundary for regulars.
 # This list must be in ordered lists of [games_needed, elo_bump] from small to big
@@ -82,6 +85,8 @@ class mybalance(minqlx.Plugin):
         self.set_cvar_once("qlx_balanceApi", "elo")
         self.set_cvar_once("qlx_elo_kick", "1")
         self.set_cvar_once("qlx_elo_block_connecters", "0")
+        self.set_cvar_once("qlx_mybalance_warmup_seconds", "300")
+        self.set_cvar_once("qlx_mybalance_warmup_interval", "60")
 
         # get cvars
         self.ELO_MIN = int(self.get_cvar("qlx_elo_limit_min"))
@@ -97,6 +102,9 @@ class mybalance(minqlx.Plugin):
 
         # collection of [steam_id, name, thread]
         self.kickthreads = []
+
+        # Keep broadcasting warmup reminders?
+        self.warmup_reminders = True
 
         self.ratings_lock = threading.RLock()
         # Keys: steam_id - Items: {"ffa": {"elo": 123, "games": 321, "local": False}, ...}
@@ -117,17 +125,22 @@ class mybalance(minqlx.Plugin):
         self.add_command(("elomin", "minelo"), self.cmd_min_elo, 3, usage="[ELO]")
         self.add_command(("elomax", "maxelo"), self.cmd_max_elo, 3, usage="[ELO]")
         self.add_command(("rankings", "elotype"), self.cmd_elo_type, usage="[A|B]")
+        self.add_command("reminders", self.cmd_warmup_reminders, 2, usage="[ON|OFF]")
         self.add_hook("team_switch", self.handle_team_switch)
         self.add_hook("round_end", self.handle_round_end)
         self.add_hook("round_countdown", self.handle_round_count)
+        self.add_hook("round_start", self.handle_round_start)
         self.add_hook("player_connect", self.handle_player_connect)
         self.add_hook("player_disconnect", self.handle_player_disconnect)
+        self.add_hook("game_countdown", self.handle_game_countdown)
+        self.add_hook("new_game", self.handle_new_game)
 
         self.add_command(("setrating", "setelo"), self.cmd_setrating, 3, usage="<id>|<name> <rating>")
         self.add_command(("getrating", "getelo", "elo"), self.cmd_getrating, usage="<id>|<name> [gametype]")
         self.add_command(("remrating", "remelo"), self.cmd_remrating, 3, usage="<id>|<name>")
 
         self.unload_overlapping_commands()
+        self.handle_new_game() # start counting reminders if we are in warmup
 
     @minqlx.delay(1)
     def unload_overlapping_commands(self):
@@ -320,12 +333,12 @@ class mybalance(minqlx.Plugin):
                 add_sid = target.steam_id
                 add_nam = msg[2] if len(msg) == 3 else target.name
 
-
-            script_dir = os.path.dirname(__file__) #<-- absolute dir the script is in
-            abs_file_path = os.path.join(script_dir, EXCEPTIONS_FILE)
+            abs_file_path = os.path.join(self.get_cvar("fs_homepath"), EXCEPTIONS_FILE)
             with open (abs_file_path, "r") as file:
                 for line in file:
-                    sid, name = line.split(" ")
+                    split = line.split()
+                    sid = split.pop(0)
+                    name = " ".join(split)
                     if int(sid) == add_sid:
                         player.tell("^6Psst: ^7This ID is already in the exception list under name ^6{}^7!".format(name))
                         return minqlx.RET_STOP_ALL
@@ -354,14 +367,15 @@ class mybalance(minqlx.Plugin):
     # Load a list of exceptions
     def cmd_help_load_exceptions(self, player, msg, channel):
         try:
-            script_dir = os.path.dirname(__file__) #<-- absolute dir the script is in
-            abs_file_path = os.path.join(script_dir, EXCEPTIONS_FILE)
+            abs_file_path = os.path.join(self.get_cvar("fs_homepath"), EXCEPTIONS_FILE)
             with open (abs_file_path, "r") as file:
                 excps = []
                 n = 0
                 for line in file:
                     if line.startswith("#"): continue # comment lines
-                    sid, name = line.split(" ")
+                    split = line.split()
+                    sid = split.pop(0)
+                    name = " ".join(split)
                     try:
                         excps.append(int(sid))
                         if player:
@@ -377,13 +391,12 @@ class mybalance(minqlx.Plugin):
 
         except IOError as e:
             try:
-                script_dir = os.path.dirname(__file__) #<-- absolute dir the script is in
-                abs_file_path = os.path.join(script_dir, EXCEPTIONS_FILE)
+                abs_file_path = os.path.join(self.get_cvar("fs_homepath"), EXCEPTIONS_FILE)
                 with open(abs_file_path,"a+") as f:
                     f.write("# This is a commented line because it starts with a '#'\n")
                     f.write("# Every exception on a newline, format: STEAMID NAME\n")
-                    f.write("# The NAME is for a mental reference and may not contain spaces\n")
-                    f.write("76561198045154609 iouonegirl\n")
+                    f.write("# The NAME is for a mental reference and may now contain spaces\n")
+                    f.write("{} (owner)\n".format(self.get_cvar('qlx_owner')))
                 minqlx.CHAT_CHANNEL.reply("^6mybalance plugin^7: No exception list found, so I made one myself.")
             except:
                 minqlx.CHAT_CHANNEL.reply("^1Error: ^7reading and creating exception list: {}".format(e))
@@ -391,7 +404,21 @@ class mybalance(minqlx.Plugin):
         except Exception as e:
             minqlx.CHAT_CHANNEL.reply("^1Error: ^7reading exception list: {}".format(e))
 
-
+    def cmd_warmup_reminders(self, player, msg, channel):
+        if len(msg) < 2 and self.warmup_reminders:
+            s = self.get_cvar('qlx_mybalance_warmup_seconds')
+            i = self.get_cvar('qlx_mybalance_warmup_interval')
+            channel.reply("^7Warmup reminders will be displayed after {} seconds at {}s intervals.".format(s,i))
+        elif len(msg) < 2:
+            channel.reply("^7Warmup reminders have currently been turned ^6off^7.")
+        elif len(msg) < 3 and msg[1].lower() in ['on', 'off']:
+            if not self.warmup_reminders and (msg[1].lower() == 'on'):
+                self.warmup_reminders = True
+                self.check_warmup(time.time(), self.game.map)
+            self.warmup_reminders = msg[1].lower() == 'on'
+            channel.reply("^7Warmup reminders have been turned ^6{}^7.".format(msg[1].lower()))
+        else:
+            return minqlx.RET_USAGE
 
     def cmd_version(self, player, msg, channel):
         self.check_version(channel=channel)
@@ -420,11 +447,58 @@ class mybalance(minqlx.Plugin):
                     except Exception as e: minqlx.console_command("echo {}".format(e))
                 return
 
+    # Goes off when new maps are loaded, games are aborted, games ended but stay on same map and matchstart
+    @minqlx.delay(3)
+    def handle_new_game(self):
+        self.check_warmup(time.time(), self.game.map)
+
+    @minqlx.thread
+    def check_warmup(self, warmup, mapname):
+        while all([self.game.state == "warmup", self.game.map == mapname, self.warmup_reminders, self.__class__.__name__ in minqlx.Plugin._loaded_plugins, int(self.get_cvar('qlx_mybalance_warmup_seconds')) > -1, len(self.teams()['red']+self.teams()['blue']) > 1]):
+            diff = time.time() - warmup # difference in seconds
+            if diff >= int(self.get_cvar('qlx_mybalance_warmup_seconds')):
+                pgs = minqlx.Plugin._loaded_plugins
+                if 'maps' in pgs and pgs['maps'].plugin_active:
+                    m = "^7Type ^2!s^7 to skip this map, or ^3ready up^7! \nTeams will auto shuffle+balance!"
+                    self.msg(m.replace('\n', ''))
+                    for p in self.teams()['red'] + self.teams()['blue']:
+                        p.center_print(m)
+                else:
+                    m = "^7Time to ^3ready^7 up! \nTeams will be auto shuffled and balanced!"
+                    self.msg(m.replace('\n', ''))
+                    for p in self.teams()['red'] + self.teams()['blue']:
+                        p.center_print(m)
+                time.sleep(int(self.get_cvar('qlx_mybalance_warmup_interval')))
+                continue
+            time.sleep(1)
+
+    @minqlx.delay(5)
+    def handle_game_countdown(self):
+        #self.msg("^7Preparing game! Locking teams...")
+        self.lock("blue")
+        self.lock("red")
+        self.balance_before_start(0, True)
+        self.msg("^7Shuffling players...")
+        self.shuffle()
+        if 'balance' in minqlx.Plugin._loaded_plugins:
+            self.msg("^7Balancing on skill...")
+            b = minqlx.Plugin._loaded_plugins['balance']
+            teams = self.teams()
+            players = dict([(p.steam_id, self.game.type_short) for p in teams["red"] + teams["blue"]])
+            b.add_request(players, b.callback_balance, minqlx.CHAT_CHANNEL)
+        else:
+            self.msg("^7Couldn't balance on skill, make sure ^6balance^7 is loaded.")
+        #self.msg("^7Ready to go! Good luck and have fun!!")
+
+
 
     def handle_player_connect(self, player):
         # If admin, check version number
         if self.db.has_permission(player, 5):
             self.check_version(player=player)
+            self.msg("^7Version ^6{}^7 of ^6mybalance^7 now stores the exception list in fs_homepath.".format(VERSION))
+            self.msg("^7Don't forget to move the {} file from plugin folder to fs_homepath.".format(EXCEPTIONS_FILE))
+
 
         # If you are not an exception, you must be checked for elo limit
         if not (player.steam_id in self.exceptions):
@@ -483,7 +557,12 @@ class mybalance(minqlx.Plugin):
 
 
     @minqlx.thread
-    def balance_before_start(self, roundnumber):
+    def balance_before_start(self, roundnumber, direct=False):
+        @minqlx.next_frame # Game logic should never be done in a thread directly
+        def game_logic(func): func()
+        @minqlx.next_frame
+        def slay_player(p): p.health = 0 # assignment wasnt allowed in lambda
+
         def is_even(n):
             return n % 2 == 0
 
@@ -503,7 +582,7 @@ class mybalance(minqlx.Plugin):
         countdown = int(self.get_cvar('g_roundWarmupDelay'))
         if self.game.type_short == "ft":
             countdown = int(self.get_cvar('g_freezeRoundDelay'))
-        time.sleep(max(countdown / 1000 - 0.5, 0))
+        if not direct: time.sleep(max(countdown / 1000 - 0.8, 0))
 
         # Grab the teams
         teams = self.teams()
@@ -519,13 +598,16 @@ class mybalance(minqlx.Plugin):
         # While there is a difference in teams of more than 1
         while abs(red_min_blue(excluded_teams)) >= 1:
 
-            diff = red_min_blue(excluded_teams)
             last = self.algo_get_last(excluded_teams)
+            diff = red_min_blue(excluded_teams)
 
+            if not last:
+                #self.msg("^1Mybalance couldn't retrieve the last player. Please consult error logs.")
+                minqlx.console_command("echo Error: Trying to balance before round {} start. Red({}) - Blue({}) players".format(roundnumber, len(teams['red']), len(teams['blue'])))
+                return
             if is_even(diff): # one team has an even amount of people more than the other
-
                 to, fr = ['blue','red'] if diff > 0 else ['red', 'blue']
-                last.put(to)
+                game_logic(lambda: last.put(to))
                 self.msg("^6Uneven teams action^7: Moved {} from {} to {}".format(last.name, fr, to))
 
             else: # there is an odd number of uneven, then one will have to spec
@@ -533,9 +615,18 @@ class mybalance(minqlx.Plugin):
                 if self.prevent or self.last_action == "ignore":
                     excluded_teams = exclude_player(last)
                     self.msg("^6Uneven teams^7: {} will not be moved to spec".format(last.name))
+                elif self.last_action == "slay":
+                    if 'anti_rape' in minqlx.Plugin._loaded_plugins:
+                        game_logic(lambda: last.put("spectator"))
+                        self.msg("^6Uneven teams action^7: {} was moved to spec to even teams!".format(last.name))
+                        minqlx.console_command("echo Not slayed because anti_rape plugin is loaded.")
+                    else:
+                        slay_player(last)
+                        self.msg("{} ^7has been ^1slain ^7to even the teams!")
                 else:
-                    last.put("spectator")
                     self.msg("^6Uneven teams action^7: {} was moved to spec to even teams!".format(last.name))
+                    game_logic(lambda: last.put("spectator"))
+            time.sleep(0.2)
 
 
 
@@ -543,13 +634,19 @@ class mybalance(minqlx.Plugin):
 
     def cmd_last_action(self, player, msg, channel):
         if len(msg) < 2:
+            if self.last_action == 'slay' and 'anti_rape' in minqlx.Plugin._loaded_plugins:
+                return channel.reply("^7The current action is ^6slay^7, but will ^6spec^7 since ^6anti_rape^7 is active.")
             return channel.reply("^7The current action when teams are uneven is: ^6{}^7.".format(self.last_action))
 
         if msg[1] not in ["slay", "spec", "ignore"]:
             return minqlx.RET_USAGE
 
         self.last_action = msg[1]
+
+        if self.last_action == 'slay' and 'anti_rape' in minqlx.Plugin._loaded_plugins:
+            return channel.reply("^7Action has been set to ^6slay^7, but will ^6spec^7 because ^6anti_rape^7 is loaded.")
         channel.reply("^7Action has been succesfully changed to: ^6{}^7.".format(msg[1]))
+
 
     # At the end of a round, prevent is reset back to false.
     # This gives us 10 seconds to prevent slaying before the
@@ -569,14 +666,20 @@ class mybalance(minqlx.Plugin):
         teams = self.teams()
         player_count = len(teams["red"] + teams["blue"])
 
+        # If it is the last player, don't do this and let the game finish normally
+        if player_count == 1:
+            return
 
         # If there is a difference in teams of more than 1
         diff = red_min_blue()
         to, fr = ['blue', 'red'] if diff > 0 else ['red','blue']
-        last = self.algo_get_last()
         n = int(abs(diff) / 2)
         if abs(diff) >= 1:
-            if is_even(diff):
+            last = self.algo_get_last()
+            if not last:
+                self.msg("^7No last person could be predicted in round countdown from teams:\nRed:{}\nBlue:{}".format(teams['red'], teams['blue']))
+
+            elif is_even(diff):
                 n = last.name if n == 1 else "{} players".format(n)
                 self.msg("^6Uneven teams detected!^7 At round start i'll move {} to {}".format(n, to))
             else:
@@ -585,6 +688,25 @@ class mybalance(minqlx.Plugin):
                 self.msg("^6Uneven teams detected!^7 Server will auto spec {}{}.".format(last.name, m))
 
         self.balance_before_start(round_number)
+
+    # If there is no round delay, then round_count hasnt been called.
+    def handle_round_start(self, round_number):
+        if self.game.type_short == "ft":
+            if not int(self.get_cvar('g_freezeRoundDelay')):
+                self.balance_before_start(round_number, True)
+        else:
+            if not int(self.get_cvar('g_roundWarmupDelay')):
+                self.balance_before_start(round_number, True)
+
+        # Furthermore, we should also unlock the teams after the game countdown
+        if round_number == 1:
+            self.unlock_teams()
+
+    @minqlx.delay(2)
+    def unlock_teams(self):
+        self.msg("^7Unlocking teams!")
+        self.unlock("red")
+        self.unlock("blue")
 
     def cmd_prevent_last(self, player, msg, channel):
         """A command to prevent the last player on a team being kicked if
@@ -708,29 +830,6 @@ class mybalance(minqlx.Plugin):
     def is_odd(self, number):
         return not self.is_even(number)
 
-    def put_or_tell(self, player, msg, team):
-        def list_alternatives(players, indent=2):
-            out = ""
-            for p in players:
-                out += " " * indent
-                out += "{}^6:^7 {}\n".format(p.id, p.name)
-            player.tell(out[:-1])
-
-        player_list = self.players()
-        if not player_list:
-            player.tell("There are no players connected at the moment.")
-
-        else:
-            players = self.find_players(msg[1])
-            if players:
-                if len(players) == 1:
-                    players[0].put(team)
-                else:
-                    player.tell("A total of ^6{}^7 players matched:".format(len(players)))
-                    list_alternatives(players)
-            else:
-                player.tell("Sorry, but no players matched your tokens.")
-
     def algo_get_last(self, excluded_teams = False):
         # Find the player to be acted upon. If there are more than 1 rounds
         # played, we will take the lowest score. Otherwise the last to join
@@ -738,12 +837,14 @@ class mybalance(minqlx.Plugin):
         # If teams are even, just return
         teams = excluded_teams or self.teams()
 
-
         # See which team is bigger than the other
-        if len(teams["red"]) < len(teams["blue"]):
+        if len(teams["blue"]) > len(teams["red"]):
             bigger_team = teams["blue"].copy()
-        else:
+        elif len(teams["red"]) > len(teams["blue"]):
             bigger_team = teams["red"].copy()
+        else:
+            minqlx.console_command("echo Cannot pick last player since there are none.")
+            return
 
         if (self.game.red_score + self.game.blue_score) >= 1:
 
@@ -842,16 +943,21 @@ class mybalance(minqlx.Plugin):
                     kickmsg = "but you are free to keep watching."
                 self.plugin.msg("^7Sorry, {} your glicko ({}) doesn't meet the server requirements, {}".format(self.player.name, self.elo, kickmsg))
             def try_mute(self):
+                @minqlx.next_frame
+                def execute(): self.player.mute()
                 time.sleep(4)
                 self.player = self.plugin.find_player(self.player.name)[0]
                 if not self.player: self.stop()
-                if self.go and self.plugin.get_cvar("qlx_elo_kick") == "1": self.player.mute()
+                if self.go and self.plugin.get_cvar("qlx_elo_kick") == "1": execute()
             def try_kick(self):
+                @minqlx.next_frame
+                def execute():
+                    self.player.kick("^1GOT KICKED!^7 Glicko ({}) was too {} for this server.".format(self.elo, self.highlow))
                 if self.plugin.get_cvar("qlx_elo_kick") == "0": return
                 time.sleep(14)
                 self.player = self.plugin.find_player(self.player.name)[0]
                 if not self.player: self.stop()
-                if self.go: self.player.kick("^1GOT KICKED!^7 Glicko ({}) was too {} for this server.".format(self.elo, self.highlow))
+                if self.go: execute()
             def run(self):
                 self.try_mute()
                 self.try_mess()
@@ -898,6 +1004,8 @@ class mybalance(minqlx.Plugin):
             if left + completed >= threshold:
                 max_elo += boundary
                 break
+
+        if not elo and not games: return
 
         if elo < self.ELO_MIN:
             if games < self.GAMES_NEEDED:
