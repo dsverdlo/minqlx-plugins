@@ -22,10 +22,16 @@
 # - qlx_elo_limit_min "0"
 # - qlx_elo_limit_max "1600"
 # - qlx_elo_games_needed "10"
-# - qlx_elo_kick "1"        (kick spectators after they joined)
-# - qlx_elo_block_connecters "0" (block players from connecting)
-# - qlx_mybalance_warmup_seconds "300" (delay in seconds for readyup messages. Set to -1 to 'disable')
-# - qlx_mybalance_warmup_interval "60" (interval in seconds for readyup messages)
+# - qlx_mybalance_autoshuffle "1"
+#
+# - qlx_elo_kick "1"
+#       ^ (set "1" to kick spectators after they joined)
+# - qlx_elo_block_connecters "0"
+#       ^ (set "1" to block players from connecting)
+# - qlx_mybalance_warmup_seconds "300"
+#       ^ (how many seconds of warmup before readyup messages come. Set to -1 to disable)
+# - qlx_mybalance_warmup_interval "60"
+#       ^ (interval in seconds for readyup messages)
 
 
 import minqlx
@@ -38,7 +44,7 @@ import os
 
 from minqlx.database import Redis
 
-VERSION = "v0.50"
+VERSION = "v0.51"
 
 # Add a little bump to the boundary for regulars.
 # This list must be in ordered lists of [games_needed, elo_bump] from small to big
@@ -87,6 +93,7 @@ class mybalance(minqlx.Plugin):
         self.set_cvar_once("qlx_elo_block_connecters", "0")
         self.set_cvar_once("qlx_mybalance_warmup_seconds", "300")
         self.set_cvar_once("qlx_mybalance_warmup_interval", "60")
+        self.set_cvar_once("qlx_mybalance_autoshuffle", "1")
 
         # get cvars
         self.ELO_MIN = int(self.get_cvar("qlx_elo_limit_min"))
@@ -474,11 +481,10 @@ class mybalance(minqlx.Plugin):
 
     @minqlx.delay(5)
     def handle_game_countdown(self):
-        #self.msg("^7Preparing game! Locking teams...")
         self.lock("blue")
         self.lock("red")
         self.balance_before_start(0, True)
-        self.msg("^7Shuffling players...")
+        if not int(self.get_cvar("qlx_mybalance_autoshuffle")): return
         self.shuffle()
         if 'balance' in minqlx.Plugin._loaded_plugins:
             self.msg("^7Balancing on skill...")
@@ -496,8 +502,8 @@ class mybalance(minqlx.Plugin):
         # If admin, check version number
         if self.db.has_permission(player, 5):
             self.check_version(player=player)
-            self.msg("^7Version ^6{}^7 of ^6mybalance^7 now stores the exception list in fs_homepath.".format(VERSION))
-            self.msg("^7Don't forget to move the {} file from plugin folder to fs_homepath.".format(EXCEPTIONS_FILE))
+            player.tell("^6Psst: ^7Version ^6{}^7 of ^6mybalance^7 now stores the exception list in fs_homepath.".format(VERSION))
+            player.tell("^6Psst: ^7Don't forget to move the {} file from plugin folder to fs_homepath.".format(EXCEPTIONS_FILE))
 
 
         # If you are not an exception, you must be checked for elo limit
