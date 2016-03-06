@@ -16,7 +16,7 @@ import minqlx
 import requests
 import time
 
-VERSION = "v0.24"
+VERSION = "v0.25"
 
 PLAYER_KEY = "minqlx:players:{}"
 COMPLETED_KEY = PLAYER_KEY + ":games_completed"
@@ -49,7 +49,7 @@ class player_info(minqlx.Plugin):
 
     def handle_player_connect(self, player):
         if int(self.get_cvar("qlx_pinfo_display_auto")):
-            self.fetch(player, self.game.type_short)
+            self.fetch(player, self.game.type_short, minqlx.CHAT_CHANNEL)
 
         if self.db.has_permission(player, 5):
             self.check_version(player=player)
@@ -98,7 +98,7 @@ class player_info(minqlx.Plugin):
                 if not target_player: return minqlx.RET_STOP_EVENT
 
         # go fetch his elo
-        self.fetch(target_player, self.game.type_short)
+        self.fetch(target_player, self.game.type_short, channel)
 
 
     def cmd_all_elos(self, player, msg, channel):
@@ -117,7 +117,7 @@ class player_info(minqlx.Plugin):
                 if not target_player: return minqlx.RET_STOP_EVENT
 
         # go fetch his elo
-        self.fetch(target_player, None)
+        self.fetch(target_player, None, channel)
 
     # Show info of people fallen off the scoreboard
     def cmd_scoreboard(self, player, msg, channel):
@@ -174,7 +174,7 @@ class player_info(minqlx.Plugin):
 
 
     @minqlx.thread
-    def fetch(self, player, gt):
+    def fetch(self, player, gt, channel):
         try:
             sid = player.steam_id
         except:
@@ -199,18 +199,18 @@ class player_info(minqlx.Plugin):
                 _sid = int(p["steamid"])
                 if _sid == sid: # got our player
                     # If they want all the elos
-                    if not gt: return self.callback_all(player, p)
+                    if not gt: return self.callback_all(player, p, channel)
                     # If the request gametype is found
-                    if gt in p: return self.callback(player, p[gt]["elo"], p[gt]["games"])
+                    if gt in p: return self.callback(player, p[gt]["elo"], p[gt]["games"], channel)
                     # If the gametype was not found
-                    else: return self.callback(player, 0,0)
+                    else: return self.callback(player, 0,0, channel)
 
 
 
-        return self.callback(player, 0, 0)
+        return self.callback(player, 0, 0, channel)
 
 
-    def callback_all(self, player, modes):
+    def callback_all(self, player, modes, channel):
         info = []
         for mode in modes:
             if mode not in EXT_SUPPORTED_GAMETYPES: continue
@@ -219,13 +219,13 @@ class player_info(minqlx.Plugin):
             info.append(" ^3{}^7: {} ({} games)".format(mode.upper(), elo, games))
 
         if not info:
-            self.msg("^6{}^7 has no tracked elos.".format(player.name))
+            channel.reply("^6{}^7 has no tracked elos.".format(player.name))
         else:
             b = 'b' if self.get_cvar('qlx_balanceApi') == 'elo_b' else ''
-            self.msg("^6{}^7's {}ELO's: {}".format(player.name, b, ", ".join(info)))
+            channel.reply("^6{}^7's {}ELO's: {}".format(player.name, b, ", ".join(info)))
 
 
-    def callback(self, target_player, elo, games):
+    def callback(self, target_player, elo, games, channel):
         try:
             ident = target_player.steam_id
             name = target_player.name
@@ -256,7 +256,7 @@ class player_info(minqlx.Plugin):
 
         info.append("^3{} ^7{}ELO: ^6{}^7".format(self.game.type_short.upper(),'b' if self.get_cvar('qlx_balanceApi') == 'elo_b' else '', elo, games))
 
-        return minqlx.CHAT_CHANNEL.reply("^6{}^7: ".format(name) + "^7, ".join(info) + "^7.")
+        return channel.reply("^6{}^7: ".format(name) + "^7, ".join(info) + "^7.")
 
 
     # ====================================================================
