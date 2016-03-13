@@ -22,7 +22,7 @@
 # - qlx_elo_limit_min "0"
 # - qlx_elo_limit_max "1600"
 # - qlx_elo_games_needed "10"
-# - qlx_mybalance_autoshuffle "1"
+# - qlx_mybalance_autoshuffle "0"
 #
 # - qlx_elo_kick "1"
 #       ^ (set "1" to kick spectators after they joined)
@@ -44,7 +44,7 @@ import os
 
 from minqlx.database import Redis
 
-VERSION = "v0.51"
+VERSION = "v0.52"
 
 # Add a little bump to the boundary for regulars.
 # This list must be in ordered lists of [games_needed, elo_bump] from small to big
@@ -93,7 +93,7 @@ class mybalance(minqlx.Plugin):
         self.set_cvar_once("qlx_elo_block_connecters", "0")
         self.set_cvar_once("qlx_mybalance_warmup_seconds", "300")
         self.set_cvar_once("qlx_mybalance_warmup_interval", "60")
-        self.set_cvar_once("qlx_mybalance_autoshuffle", "1")
+        self.set_cvar_once("qlx_mybalance_autoshuffle", "0")
 
         # get cvars
         self.ELO_MIN = int(self.get_cvar("qlx_elo_limit_min"))
@@ -221,15 +221,23 @@ class mybalance(minqlx.Plugin):
 
 
     # View a list of kicked players with their ID and elo
+    @minqlx.thread
     def cmd_elo_kicked(self, player, msg, channel):
+        @minqlx.next_frame
+        def reply(m):
+            if player: player.tell(m)
+            else: channel.reply(m)
+
         n = 0
         if not self.kicked:
-            channel.reply("No players kicked since plugin (re)start.")
+            reply("No players kicked since plugin (re)start.")
         for sid in self.kicked:
             name, elo = self.kicked[sid]
             m = "^7{}: ^6{}^7 - ^6{}^7 - ^6{}".format(n, sid, elo, name)
-            channel.reply(m)
+            reply(m)
             n += 1
+            time.sleep(0.2)
+        return minqlx.RET_STOP_ALL
 
     def cmd_rem_kicked(self, player, msg, channel):
         if len(msg) < 2:
@@ -241,12 +249,14 @@ class mybalance(minqlx.Plugin):
         except:
             return minqlx.RET_USAGE
 
+        counter = 0
         for sid in self.kicked.copy():
-            if not n:
+            if counter == n:
                 name, elo = self.kicked[sid]
                 del self.kicked[sid]
-            else:
-                n -= 1
+                break
+            counter += 1
+
         channel.reply("^7Successfully removed ^6{}^7 (glicko {}) from the list.".format(name, elo))
 
     def cmd_nokick(self, player, msg, channel):
@@ -260,6 +270,8 @@ class mybalance(minqlx.Plugin):
             for kt in self.kickthreads:
                 if kt[0] != sid:
                     new_kickthreats.append(kt)
+                else:
+                    kt[2].stop()
             self.kickthreads = new_kickthreats
 
             try:
@@ -415,7 +427,7 @@ class mybalance(minqlx.Plugin):
         if len(msg) < 2 and self.warmup_reminders:
             s = self.get_cvar('qlx_mybalance_warmup_seconds')
             i = self.get_cvar('qlx_mybalance_warmup_interval')
-            channel.reply("^7Warmup reminders will be displayed after {} seconds at {}s intervals.".format(s,i))
+            channel.reply("^7Warmup reminders will be displayed after {}s at {}s intervals.".format(s,i))
         elif len(msg) < 2:
             channel.reply("^7Warmup reminders have currently been turned ^6off^7.")
         elif len(msg) < 3 and msg[1].lower() in ['on', 'off']:
@@ -481,8 +493,6 @@ class mybalance(minqlx.Plugin):
 
     @minqlx.delay(5)
     def handle_game_countdown(self):
-        self.lock("blue")
-        self.lock("red")
         self.balance_before_start(0, True)
         if not int(self.get_cvar("qlx_mybalance_autoshuffle")): return
         self.shuffle()
@@ -704,15 +714,9 @@ class mybalance(minqlx.Plugin):
             if not int(self.get_cvar('g_roundWarmupDelay')):
                 self.balance_before_start(round_number, True)
 
-        # Furthermore, we should also unlock the teams after the game countdown
-        if round_number == 1:
-            self.unlock_teams()
 
-    @minqlx.delay(2)
-    def unlock_teams(self):
-        self.msg("^7Unlocking teams!")
-        self.unlock("red")
-        self.unlock("blue")
+
+
 
     def cmd_prevent_last(self, player, msg, channel):
         """A command to prevent the last player on a team being kicked if
@@ -753,6 +757,10 @@ class mybalance(minqlx.Plugin):
 
         channel.reply("{}'s {} rating has been set to ^6{}^7.".format(name, gt.upper(), rating))
 
+        # If you allow someone, check to remove them from the kick list
+        if (self.ELO_MIN <= rating <= self.ELO_MAX) and sid in self.kicked:
+            del self.kicked[sid]
+
     def cmd_remrating(self, player, msg, channel):
         if len(msg) < 2:
             return minqlx.RET_USAGE
@@ -776,6 +784,7 @@ class mybalance(minqlx.Plugin):
                 del self.ratings[sid][gt]
 
         channel.reply("{}'s locally set {} rating has been deleted.".format(name, gt.upper()))
+
 
     def cmd_getrating(self, player, msg, channel):
         if len(msg) == 1:
@@ -909,7 +918,7 @@ class mybalance(minqlx.Plugin):
                     return callback(player, _gt["elo"], _gt["games"])
 
 
-        minqlx.console_command("echo Problem fetching glicko: " + str(last_status))
+        minqlx.console_command("echo Problem fetching {} glicko: {}".format(gt, last_status))
         return
 
     def callback_elo(self, player, elo = 0, games=0):
@@ -986,7 +995,11 @@ class mybalance(minqlx.Plugin):
     def callback(self, player, elo, games):
         eval_elo = self.evaluate_elo_games(player, elo, games)
         if eval_elo:
-            self.kicked[player.steam_id] = [player.name or "unknown_name", eval_elo[1]]
+            if len(self.kicked) >= 15: # if 15 or more entries, delete an old one
+                for sid in self.kicked:
+                    del self.kicked[sid]
+                    break
+            self.kicked[player.steam_id] = [player.name, eval_elo[1]]
             self.help_start_kickthread(player, eval_elo[1], eval_elo[0])
 
 
