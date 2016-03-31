@@ -22,7 +22,15 @@
 # - qlx_elo_limit_min "0"
 # - qlx_elo_limit_max "1600"
 # - qlx_elo_games_needed "10"
+#
+# - qlx_mybalance_perm_allowed "2"
+#       ^ (players with this perm-level will always be allowed)
+#
 # - qlx_mybalance_autoshuffle "0"
+#       ^ (set "1" if you want an automatic shuffle before every match)
+#
+# - qlx_mybalance_exclude "0"
+#       ^ (set "1" if you want to kick players without enough info/games)
 #
 # - qlx_elo_kick "1"
 #       ^ (set "1" to kick spectators after they joined)
@@ -44,7 +52,7 @@ import os
 
 from minqlx.database import Redis
 
-VERSION = "v0.52"
+VERSION = "v0.53"
 
 # Add a little bump to the boundary for regulars.
 # This list must be in ordered lists of [games_needed, elo_bump] from small to big
@@ -94,6 +102,8 @@ class mybalance(minqlx.Plugin):
         self.set_cvar_once("qlx_mybalance_warmup_seconds", "300")
         self.set_cvar_once("qlx_mybalance_warmup_interval", "60")
         self.set_cvar_once("qlx_mybalance_autoshuffle", "0")
+        self.set_cvar_once("qlx_mybalance_perm_allowed", "2")
+        self.set_cvar_once("qlx_mybalance_exclude", "0")
 
         # get cvars
         self.ELO_MIN = int(self.get_cvar("qlx_elo_limit_min"))
@@ -149,7 +159,7 @@ class mybalance(minqlx.Plugin):
         self.unload_overlapping_commands()
         self.handle_new_game() # start counting reminders if we are in warmup
 
-    @minqlx.delay(1)
+    @minqlx.delay(2)
     def unload_overlapping_commands(self):
         try:
             balance = minqlx.Plugin._loaded_plugins['balance']
@@ -516,8 +526,9 @@ class mybalance(minqlx.Plugin):
             player.tell("^6Psst: ^7Don't forget to move the {} file from plugin folder to fs_homepath.".format(EXCEPTIONS_FILE))
 
 
-        # If you are not an exception, you must be checked for elo limit
-        if not (player.steam_id in self.exceptions):
+        # If you are not an exception (or high enough perm lvl);
+        # you must be checked for elo limit
+        if not (player.steam_id in self.exceptions or self.db.has_permission(player, self.get_cvar("qlx_mybalance_perm_allowed", int))):
 
             if int(self.get_cvar("qlx_elo_block_connecters")):
                 try:
@@ -913,12 +924,17 @@ class mybalance(minqlx.Plugin):
                 _sid = int(p["steamid"])
                 if _sid == sid: # got our player
                     if gt not in p:
-                        return minqlx.console_command("echo No {} rating for {}".format(gt, _sid))
+                        minqlx.console_command("echo No {} rating for {}".format(gt, _sid))
+                        return callback(player, 0, 0)
+
                     _gt = p[gt]
                     return callback(player, _gt["elo"], _gt["games"])
 
+            # If our players has not been found yet, then he is not known in the system
+            return callback(player, 0, 0)
 
-        minqlx.console_command("echo Problem fetching {} glicko: {}".format(gt, last_status))
+
+        self.msg("^1echo Problem fetching {} glicko: {}".format(gt, last_status))
         return
 
     def callback_elo(self, player, elo = 0, games=0):
@@ -1024,7 +1040,11 @@ class mybalance(minqlx.Plugin):
                 max_elo += boundary
                 break
 
-        if not elo and not games: return
+        if self.get_cvar("qlx_mybalance_exclude", int) and games < self.GAMES_NEEDED:
+            self.msg("{}'s ratings are too uninformative for this server. ({}/{} games played)".format(player.name, games, self.GAMES_NEEDED))
+            return ['uninformative', elo]
+
+        if not elo and not games: return # allow person to join
 
         if elo < self.ELO_MIN:
             if games < self.GAMES_NEEDED:
