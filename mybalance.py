@@ -60,14 +60,9 @@ import os
 
 from minqlx.database import Redis
 
-VERSION = "v0.54.2"
+VERSION = "v0.54.3"
 
-# Add a little bump to the boundary for regulars.
-# This list must be in ordered lists of [games_needed, elo_bump] from small to big
-# E.g. [ [25,100],  [50,200],  [75,400],  [100,800] ]
-# --> if a player has played 60 games on our server -> he reaches [50,200] and the upper elo limit adds 200
-# To disable service: set BOUNDARIES = []
-BOUNDARIES = [ [50,100], [75,200], [100,400] ]
+
 BOUNDARIES = []
 
 # If this is True, a message will be printed on the screen of the person who should spec when teams are uneven
@@ -128,6 +123,7 @@ class mybalance(minqlx.Plugin):
                 assert type(_e) is int
                 assert type(_b) is int
         except:
+            BOUNDARIES = []
 
         self.prevent = False
         self.last_action = DEFAULT_LAST_ACTION
@@ -163,6 +159,7 @@ class mybalance(minqlx.Plugin):
         self.add_command("remkicked", self.cmd_rem_kicked, 2, usage="<id>")
         self.add_command(("nokick", "dontkick"), self.cmd_nokick, 2, usage="[<name>]")
         self.add_command(("v_mybalance", "version_mybalance"), self.cmd_version)
+        self.add_command("update", self.cmd_autoupdate, 5, usage="<plugin>|all")
         self.add_command(("limit", "limits", "elolimit"), self.cmd_elo_limit)
         self.add_command(("elomin", "minelo"), self.cmd_min_elo, 3, usage="[ELO]")
         self.add_command(("elomax", "maxelo"), self.cmd_max_elo, 3, usage="[ELO]")
@@ -1313,3 +1310,31 @@ class mybalance(minqlx.Plugin):
 
         # By now there can only be one person left
         return target_players.pop()
+
+
+
+    def cmd_autoupdate(self, player, msg, channel):
+        if len(msg) < 2:
+            return minqlx.RET_USAGE
+
+        if msg[1] in [self.__class__.__name__, 'all']:
+            self.update(player, msg, channel)
+
+    @minqlx.thread
+    def update(self, player, msg, channel):
+        try:
+            url = "https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/{}.py".format(self.__class__.__name__)
+            res = requests.get(url)
+            last_status = res.status_code
+            if res.status_code != requests.codes.ok: return
+            script_dir = os.path.dirname(__file__) #<-- absolute dir the script is in
+            abs_file_path = os.path.join(script_dir, "{}.py".format(self.__class__.__name__))
+            with open(abs_file_path,"w") as f:
+                f.write(res.text)
+            minqlx.reload_plugin(self.__class__.__name__)
+            channel.reply("^2updated ^3iou^7one^4girl^7's ^6{} ^7plugin to the latest version!".format(self.__class__.__name__))
+            #self.cmd_version(player, msg, channel)
+            return True
+        except Exception as e :
+            channel.reply("^1Update failed for {}^7: {}".format(self.__class__.__name__, e))
+            return False
