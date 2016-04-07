@@ -5,7 +5,7 @@
 # You are free to modify this plugin to your custom,
 # except for the version command related code.
 #
-# Thanks to Bus Station, Minkyn and BarelyMiSSeD
+# Thanks to Bus Station, Minkyn, Melodeiro, BarelyMiSSeD
 # for their input on this plugin.
 #
 # Its purpose is to balance the teams out. For now we don't
@@ -43,8 +43,13 @@
 #
 # - qlx_mybalance_uneven_time "10"
 #       ^ (for CTF and TDM, specify how many seconds to wait before balancing uneven teams)
-
-
+#
+# - qlx_mybalance_elo_bump_regs = "[]"
+#       ^ (Add a little bump to the boundary for regulars.
+#           This list must be in ordered lists of [games_needed, elo_bump] from small to big
+#           E.g. [ [25,100],  [50,200],  [75,400],  [100,800] ]
+#           --> if a player has played 60 games on our server -> he reaches [50,200] and the upper elo limit adds 200)
+#
 import minqlx
 import requests
 import itertools
@@ -55,7 +60,7 @@ import os
 
 from minqlx.database import Redis
 
-VERSION = "v0.54.1"
+VERSION = "v0.54.2"
 
 # Add a little bump to the boundary for regulars.
 # This list must be in ordered lists of [games_needed, elo_bump] from small to big
@@ -63,6 +68,7 @@ VERSION = "v0.54.1"
 # --> if a player has played 60 games on our server -> he reaches [50,200] and the upper elo limit adds 200
 # To disable service: set BOUNDARIES = []
 BOUNDARIES = [ [50,100], [75,200], [100,400] ]
+BOUNDARIES = []
 
 # If this is True, a message will be printed on the screen of the person who should spec when teams are uneven
 CP = True
@@ -108,15 +114,26 @@ class mybalance(minqlx.Plugin):
         self.set_cvar_once("qlx_mybalance_perm_allowed", "2")
         self.set_cvar_once("qlx_mybalance_exclude", "0")
         self.set_cvar_once("qlx_mybalance_uneven_time", "10")
+        self.set_cvar_once("qlx_mybalance_elo_bump_regs", "[]")
 
         # get cvars
         self.ELO_MIN = int(self.get_cvar("qlx_elo_limit_min"))
         self.ELO_MAX = int(self.get_cvar("qlx_elo_limit_max"))
         self.GAMES_NEEDED = int(self.get_cvar("qlx_elo_games_needed"))
+        try:
+            global BOUNDARIES
+            BOUNDARIES = eval(self.get_cvar("qlx_mybalance_elo_bump_regs"))
+            assert type(BOUNDARIES) is list
+            for _e, _b in BOUNDARIES:
+                assert type(_e) is int
+                assert type(_b) is int
+        except:
 
         self.prevent = False
         self.last_action = DEFAULT_LAST_ACTION
         self.jointimes = {}
+
+        self.game_active = self.game.state == "in_progress"
 
         # Vars for CTF / TDM
         self.ctfplayer = False
@@ -156,32 +173,33 @@ class mybalance(minqlx.Plugin):
         self.add_hook("round_countdown", self.handle_round_count)
         self.add_hook("round_start", self.handle_round_start)
         self.add_hook("game_start", self.handle_game_start)
+        self.add_hook("game_end", self.handle_game_end)
         self.add_hook("player_connect", self.handle_player_connect)
         self.add_hook("player_disconnect", self.handle_player_disconnect)
         self.add_hook("game_countdown", self.handle_game_countdown)
         self.add_hook("new_game", self.handle_new_game)
 
-        self.add_command(("setrating", "setelo"), self.cmd_setrating, 3, usage="<id>|<name> <rating>")
-        self.add_command(("getrating", "getelo", "elo"), self.cmd_getrating, usage="<id>|<name> [gametype]")
-        self.add_command(("remrating", "remelo"), self.cmd_remrating, 3, usage="<id>|<name>")
+        self.add_command(("setrating", "setelo"), self.cmd_setrating, 3, priority=minqlx.PRI_HIGH, usage="<id>|<name> <rating>")
+        self.add_command(("getrating", "getelo", "elo"), self.cmd_getrating, priority=minqlx.PRI_HIGH, usage="<id>|<name> [gametype]")
+        self.add_command(("remrating", "remelo"), self.cmd_remrating, 3, priority=minqlx.PRI_HIGH, usage="<id>|<name>")
         self.add_command("belo", self.cmd_getratings, usage="<id>|<name> [gametype]")
 
-        self.unload_overlapping_commands()
+        #self.unload_overlapping_commands()
         self.handle_new_game() # start counting reminders if we are in warmup
 
-        if self.game.state == "in_progress" and self.game.type_short in ['ctf', 'tdm']:
+        if self.game_active and self.game.type_short in ['ctf', 'tdm']:
             self.balance_before_start(self.game.type_short, True)
 
-    @minqlx.delay(2)
-    def unload_overlapping_commands(self):
-        try:
-            balance = minqlx.Plugin._loaded_plugins['balance']
-            remove_commands = set(['setrating', 'getrating', 'remrating'])
-            for cmd in balance.commands.copy():
-                if remove_commands.intersection(cmd.name):
-                    balance.remove_command(cmd.name, cmd.handler)
-        except Exception as e:
-            pass
+##    @minqlx.delay(2)
+##    def unload_overlapping_commands(self):
+##        try:
+##            balance = minqlx.Plugin._loaded_plugins['balance']
+##            remove_commands = set(['setrating', 'getrating', 'remrating'])
+##            for cmd in balance.commands.copy():
+##                if remove_commands.intersection(cmd.name):
+##                    balance.remove_command(cmd.name, cmd.handler)
+##        except Exception as e:
+##            pass
 
     def cmd_elo_type(self, player, msg, channel):
         if len(msg) < 2:
@@ -491,6 +509,7 @@ class mybalance(minqlx.Plugin):
     # Goes off when new maps are loaded, games are aborted, games ended but stay on same map and matchstart
     @minqlx.delay(3)
     def handle_new_game(self):
+        self.checking_balance = False
         self.check_warmup(time.time(), self.game.map)
 
     @minqlx.thread
@@ -594,7 +613,7 @@ class mybalance(minqlx.Plugin):
                     pass
         self.kickthreads = new_kickthreads
 
-        if player.team != "spectator" and self.game.type_short in ["ctf", "tdm"]:
+        if self.game_active and player.team != "spectator" and self.game.type_short in ["ctf", "tdm"]:
             self.balance_before_start(self.game.type_short, True)
 
 
@@ -611,7 +630,7 @@ class mybalance(minqlx.Plugin):
                 return
 
         # If the game mode has no rounds, and a player joins, set a timer
-        if self.game.state == "in_progress" and self.game.type_short in ["ctf", "tdm"]:
+        if self.game_active and self.game.type_short in ["ctf", "tdm"]:
             teams = self.teams()
             # If someone joins, check if teams are even
             if new in ['red', 'blue']:
@@ -640,14 +659,18 @@ class mybalance(minqlx.Plugin):
         def setpos(_p, _x, _y, _z):
             _p.position(x=_x, y=_y, z=_z)
             _p.velocity(reset=True)
+        @minqlx.next_frame
+        def cprint(_p, _m):
+            if _p: _p.center_print(_m)
 
-        if self.game.state != "in_progress": return
+        if not self.game_active: return
 
         pos = None
         if player: pos = list(player.position())
 
         cvar = float(self.get_cvar("qlx_mybalance_uneven_time", int))
         while (cvar > 0):
+            if not self.game_active: return
             # If there was a player to watch given, see if he is still extra
             if player:
                 if self.ctfplayer:
@@ -658,7 +681,7 @@ class mybalance(minqlx.Plugin):
 
                 setpos(player, pos[0], pos[1], pos[2])
                 if cvar.is_integer():
-                    player.center_print("^7Teams are uneven. ^6{}^7s until spec!".format(int(cvar)))
+                    cprint(player, "^7Teams are uneven. ^6{}^7s until spec!".format(int(cvar)))
 
             time.sleep(0.1)
             cvar -= 0.1
@@ -704,7 +727,7 @@ class mybalance(minqlx.Plugin):
 
         # If it is the last player, don't do this and let the game finish normally
         # OR if there is no match going on
-        if player_count == 1 or self.game.state != "in_progress":
+        if player_count == 1 or not self.game_active:
             return
 
         # If the last person is prevented or ignored to spec, we need to exclude him to balance the rest.
@@ -815,11 +838,14 @@ class mybalance(minqlx.Plugin):
 
 
     def handle_game_start(self, data):
+        self.game_active = True
+
         # There are no rounds?? Check it yourself then, pronto!
         if self.game.type_short in ["ctf", "tdm"]:
             self.balance_before_start(self.game.type_short, True)
 
-
+    def handle_game_end(self, data):
+        self.game_active = False
 
     def cmd_prevent_last(self, player, msg, channel):
         """A command to prevent the last player on a team being kicked if
@@ -863,6 +889,7 @@ class mybalance(minqlx.Plugin):
         # If you allow someone, check to remove them from the kick list
         if (self.ELO_MIN <= rating <= self.ELO_MAX) and sid in self.kicked:
             del self.kicked[sid]
+        return minqlx.RET_STOP
 
     def cmd_remrating(self, player, msg, channel):
         if len(msg) < 2:
@@ -887,6 +914,8 @@ class mybalance(minqlx.Plugin):
                 del self.ratings[sid][gt]
 
         channel.reply("{}'s locally set {} rating has been deleted.".format(name, gt.upper()))
+
+        return minqlx.RET_STOP
 
 
     def cmd_getrating(self, player, msg, channel):
@@ -917,6 +946,7 @@ class mybalance(minqlx.Plugin):
                 return minqlx.RET_STOP_ALL
 
         self.fetch(target_player or sid, gt, self.callback_elo)
+        return minqlx.RET_STOP
 
     def cmd_getratings(self, player, msg, channel):
         if len(msg) == 1:
