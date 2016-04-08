@@ -60,7 +60,7 @@ import os
 
 from minqlx.database import Redis
 
-VERSION = "v0.54.3"
+VERSION = "v0.54.4"
 
 
 BOUNDARIES = []
@@ -824,14 +824,17 @@ class mybalance(minqlx.Plugin):
 
         self.balance_before_start(round_number)
 
-    # If there is no round delay, then round_count hasnt been called.
+    # Normally the teams have already been balanced so players are switched in time,
+    # but check it again to make sure the round starts even
     def handle_round_start(self, round_number):
-        if self.game.type_short == "ft":
-            if not int(self.get_cvar('g_freezeRoundDelay')):
-                self.balance_before_start(round_number, True)
-        else:
-            if not int(self.get_cvar('g_roundWarmupDelay')):
-                self.balance_before_start(round_number, True)
+        self.balance_before_start(round_number, True)
+    # If there is no round delay, then round_count hasnt been called.
+##        if self.game.type_short == "ft":
+##            if not int(self.get_cvar('g_freezeRoundDelay')):
+##                self.balance_before_start(round_number, True)
+##        else:
+##            if not int(self.get_cvar('g_roundWarmupDelay')):
+##                self.balance_before_start(round_number, True)
 
 
     def handle_game_start(self, data):
