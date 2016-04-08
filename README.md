@@ -46,7 +46,7 @@ I can usually be found on IRC (http://webchat.quakenet.org/?channels=minqlbot).
 - CVARS
   - At the moment the values are all hard coded in the plugin itself
 - COMMANDS
-  - !hc [<name>] - Get your own or somebody elses handicap % (this can sometimes be unreadable by profile pictures)
+  - !hc [\<name\>] - Get your own or somebody elses handicap % (this can sometimes be unreadable by profile pictures)
   - !handicaps - View all the currently given handicaps and their %'s
   - !gaps [silent] - View all the players who are playing above the server average and how % they are above it. (add 'silent' if you don't want anyone to see it)
 - NOTES
@@ -63,8 +63,8 @@ I can usually be found on IRC (http://webchat.quakenet.org/?channels=minqlbot).
   - qlx_cp_message "One enemy left. Start the hunt"
 - COMMANDS:
   - !showlast - toggle on/off if you want to see '1 enemy left' message 
-  - !print - print a message to a person's screen
-  - !broadcast - print a message on everybody's screen
+  - !print \<message\> - print a message to a person's screen
+  - !broadcast \<message\> - print a message on everybody's screen
 - NOTES
   - Only works for round-based game modes
 
@@ -102,6 +102,7 @@ Furthermore this plugin uses a text file in which exceptions can be placed for t
   - qlx_mybalance_warmup_seconds "300" (how many seconds of warmup before readyup messages come. Set to -1 to disable)
   - qlx_mybalance_warmup_interval "60" (interval in seconds for readyup messages)
   - qlx_mybalance_uneven_time "10" (for CTF and TDM, specify how many seconds to wait before balancing uneven teams)
+  - qlx_mybalance_elo_bump_regs "[[50,100],[100,300]]" (with this cvar you can setup an elo bump for regular players (example 50 games played on server = 100 more elo allowed))
 - COMMANDS
   - !limit, !limits, !elolimit - view the skill rating limits, and the action which will be performed on outliers
   - !elomin [n] - without number; shows minimum allowed glicko. with number; temporary changes the minimum glicko
@@ -111,9 +112,9 @@ Furthermore this plugin uses a text file in which exceptions can be placed for t
   - !elo, !getelo - can get your own skill rating or that of someone else
   - !belo - this is like elo, but will show both your A-ranking and your B-ranking
   - !elokicked - view list of kicked people
-  - !remkicked <list-id> - after !elokicked, you can use the ID from that list to remove them from the kicklist)
-  - !add_exception <id|name> - adds an exception to the exception list
-  - !nokick [<name>], !dontkick [<name>] - prevent a person from being kicked. (if only one player is being kicked, you dont have to pass their name)
+  - !remkicked \<list-id\> - after !elokicked, you can use the ID from that list to remove them from the kicklist)
+  - !add_exception \<id|name\> - adds an exception to the exception list
+  - !nokick [\<name\>], !dontkick [\<name\>] - prevent a person from being kicked. (if only one player is being kicked, you dont have to pass their name)
   - !reload_exceptions - This will reload all the exceptions from the exceptions file. You will be able to see the ID's and names in the console.
 - NOTES
   - If you enable strict mode (qlx_mybalance_exclude "1") and qlstats goes down, players will not be able to join the server, since they won't have enough information to prove that they fall in the right skill rating limitation.
@@ -139,16 +140,16 @@ Furthermore this plugin uses a text file in which exceptions can be placed for t
 - CVARS
   - qlx_pinfo_display_auto "0" (set this to 1 if you want to see automatic info upon player connect)
 - COMMANDS
-  - !info [<player>] - display some information, like games played, quit frequency, glicko
+  - !info [\<player\>] - display some information, like games played, quit frequency, glicko
   - !scoreboard - display scoreboard information when players fall 'below' it
-  - !allelo [<player>] - for one person, display the known skill ratings of each game-mode
+  - !allelo [\<player\>] - for one person, display the known skill ratings of each game-mode
 
 # **railable**
 - This plugin can give you a message (centerprinted) when your health drops to a level where you can be killed with 1 rail. Developed for Clan Arena.
 - CVARS
 - COMMANDS
   - !railable (this command toggles the service on and off)
-  - !railmsg <sentence> (with this command you can choose the msg to be printed)
+  - !railmsg \<sentence\> (with this command you can choose the msg to be printed)
 - NOTES
   - This plugin will do several checks each second, so if you notice too much CPU usage, it is advised to unload the plugin
   - This plugin is not considered cheating, since you could also get your HUD to display this information
@@ -157,7 +158,7 @@ Furthermore this plugin uses a text file in which exceptions can be placed for t
 - Provides methods to translate any words or sentences into another language, using the Google Translate API. Also able to look up normal english definitions and Urban Dictionaries definitions. There is also an automatic translation feature, which will automatically translate messages into your native or chosen language. **Important** Requires installation of the 'textblob' python library. Instructions are in the plugin comments
 - CVARS
 - COMMANDS
-  - !translate <tag> <sentence>
+  - !translate \<tag\> \<sentence\>
   - !translate en Deze zin is vertaald geweest. -> Translation: This sentence has been translated.
   - !define match -> Definition: a contest in which people or teams compete against each other in a particular sport.
   - !urban bye -> UrbanDef: a nicer way to say "your f-ing ugly. get out of my face"
