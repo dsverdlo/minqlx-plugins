@@ -102,6 +102,7 @@ Furthermore this plugin uses a text file in which exceptions can be placed for t
   - qlx_mybalance_warmup_seconds "300" (how many seconds of warmup before readyup messages come. Set to -1 to disable)
   - qlx_mybalance_warmup_interval "60" (interval in seconds for readyup messages)
   - qlx_mybalance_uneven_time "10" (for CTF and TDM, specify how many seconds to wait before balancing uneven teams)
+  - qlx_mybalance_elo_bump_regs "[[50,100],[100,300]]" (with this cvar you can setup an elo bump for regular players (example 50 games played on server = 100 more elo allowed))
 - COMMANDS
   - !limit, !limits, !elolimit - view the skill rating limits, and the action which will be performed on outliers
   - !elomin [n] - without number; shows minimum allowed glicko. with number; temporary changes the minimum glicko
