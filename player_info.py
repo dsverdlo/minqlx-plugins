@@ -11,12 +11,18 @@
 #
 # Uses:
 # - qlx_pinfo_display_auto "0"
+# - qlx_pinfo_show_deactivated = "1"
+#       ^ (If this is 1 then a warning will be shown of players who are deactivated on qlstats)
 
 import minqlx
 import requests
+import itertools
+import threading
+import random
 import time
+import os
 
-VERSION = "v0.25"
+VERSION = "v0.26"
 
 PLAYER_KEY = "minqlx:players:{}"
 COMPLETED_KEY = PLAYER_KEY + ":games_completed"
@@ -38,17 +44,19 @@ class player_info(minqlx.Plugin):
         # set cvars once. EDIT THESE IN SERVER.CFG
         self.set_cvar_once("qlx_balanceApi", "elo")
         self.set_cvar_once("qlx_pinfo_display_auto", "0")
+        self.set_cvar_once("qlx_pinfo_show_deactivated", "1")
 
         self.add_command("info", self.cmd_player_info,  usage="[<id>|<name>]")
         self.add_command("scoreboard", self.cmd_scoreboard, usage="[<id>|<name>]")
         self.add_command(("v_player_info", "version_player_info"), self.cmd_version)
+        self.add_command("update", self.cmd_autoupdate, 5, usage="<plugin>|all")
         self.add_command(("allelo", "allelos", "aelo", "eloall"), self.cmd_all_elos, usage="[<id>|<name>]")
 
         self.add_hook("player_connect", self.handle_player_connect, priority=minqlx.PRI_LOWEST)
 
 
     def handle_player_connect(self, player):
-        if int(self.get_cvar("qlx_pinfo_display_auto")):
+        if self.get_cvar("qlx_pinfo_display_auto", int) or self.get_cvar("qlx_pinfo_show_deactivated", int):
             self.fetch(player, self.game.type_short, minqlx.CHAT_CHANNEL)
 
         if self.db.has_permission(player, 5):
@@ -195,6 +203,12 @@ class player_info(minqlx.Plugin):
                 last_status = -1
                 continue
 
+            if self.get_cvar("qlx_pinfo_show_deactivated", int):
+                if "deactivated" in js and js["deactivated"]:
+                    self.msg("^3SERVER WARNING^7! {}^7's account has been ^1DEACTIVATED^7 on qlstats.".format(player.name))
+                if not self.get_cvar("qlx_pinfo_display_auto", int):
+                    return
+
             for p in js["players"]:
                 _sid = int(p["steamid"])
                 if _sid == sid: # got our player
@@ -311,4 +325,31 @@ class player_info(minqlx.Plugin):
 
         # By now there can only be one person left
         return target_players.pop()
+
+
+    def cmd_autoupdate(self, player, msg, channel):
+        if len(msg) < 2:
+            return minqlx.RET_USAGE
+
+        if msg[1] in [self.__class__.__name__, 'all']:
+            self.update(player, msg, channel)
+
+    @minqlx.thread
+    def update(self, player, msg, channel):
+        try:
+            url = "https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/{}.py".format(self.__class__.__name__)
+            res = requests.get(url)
+            last_status = res.status_code
+            if res.status_code != requests.codes.ok: return
+            script_dir = os.path.dirname(__file__) #<-- absolute dir the script is in
+            abs_file_path = os.path.join(script_dir, "{}.py".format(self.__class__.__name__))
+            with open(abs_file_path,"w") as f:
+                f.write(res.text)
+            minqlx.reload_plugin(self.__class__.__name__)
+            channel.reply("^2updated ^3iou^7one^4girl^7's ^6{} ^7plugin to the latest version!".format(self.__class__.__name__))
+            #self.cmd_version(player, msg, channel)
+            return True
+        except Exception as e :
+            channel.reply("^1Update failed for {}^7: {}".format(self.__class__.__name__, e))
+            return False
 
