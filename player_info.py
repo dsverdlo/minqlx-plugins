@@ -11,7 +11,7 @@
 #
 # Uses:
 # - qlx_pinfo_display_auto "0"
-# - qlx_pinfo_show_deactivated = "1"
+# - qlx_pinfo_show_deactivated "1"
 #       ^ (If this is 1 then a warning will be shown of players who are deactivated on qlstats)
 
 import minqlx
@@ -22,7 +22,7 @@ import random
 import time
 import os
 
-VERSION = "v0.26"
+VERSION = "v0.27"
 
 PLAYER_KEY = "minqlx:players:{}"
 COMPLETED_KEY = PLAYER_KEY + ":games_completed"
@@ -57,7 +57,7 @@ class player_info(minqlx.Plugin):
 
     def handle_player_connect(self, player):
         if self.get_cvar("qlx_pinfo_display_auto", int) or self.get_cvar("qlx_pinfo_show_deactivated", int):
-            self.fetch(player, self.game.type_short, minqlx.CHAT_CHANNEL)
+            self.fetch(player, self.game.type_short, None)
 
         if self.db.has_permission(player, 5):
             self.check_version(player=player)
@@ -203,11 +203,14 @@ class player_info(minqlx.Plugin):
                 last_status = -1
                 continue
 
-            if self.get_cvar("qlx_pinfo_show_deactivated", int):
+            if not channel and self.get_cvar("qlx_pinfo_show_deactivated", int):
                 if "deactivated" in js and js["deactivated"]:
                     self.msg("^3SERVER WARNING^7! {}^7's account has been ^1DEACTIVATED^7 on qlstats.".format(player.name))
                 if not self.get_cvar("qlx_pinfo_display_auto", int):
                     return
+
+            if not channel:
+                channel = minqlx.CHAT_CHANNEL
 
             for p in js["players"]:
                 _sid = int(p["steamid"])
