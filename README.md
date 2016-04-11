@@ -139,6 +139,7 @@ Furthermore this plugin uses a text file in which exceptions can be placed for t
 - Displays some more info about a player if the info command is used, and also provides a method to check a player's scoreboard information (in big CA matches people sometimes fall off / just below the scoreboard)
 - CVARS
   - qlx_pinfo_display_auto "0" (set this to 1 if you want to see automatic info upon player connect)
+  - qlx_pinfo_show_deactivated "1" (while this is "1" it will display a warning when a player connects with deactivated qlstats acccount (due to cheating or other bad things))
 - COMMANDS
   - !info [\<player\>] - display some information, like games played, quit frequency, glicko
   - !scoreboard - display scoreboard information when players fall 'below' it
