@@ -123,7 +123,7 @@ class iouonegirlPlugin(minqlx.Plugin):
 
     @minqlx.thread
     def iouonegirlplugin_updateAbstract(self, player, msg, channel):
-        url = "http://wilma.vub.ac.be/~dsverdlo/minqlx-plugins/iouonegirl.py"
+        url = "https://github.com/dsverdlo/minqlx-plugins/blob/master/iouonegirl.py"
         res = requests.get(url)
         if res.status_code != requests.codes.ok: return
         abs_file_path = os.path.join(os.path.dirname(__file__), "iouonegirl.py")
