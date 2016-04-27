@@ -19,7 +19,8 @@ I can usually be found on IRC (http://webchat.quakenet.org/?channels=minqlbot).
 | Name | Short Description | Raw |
 | ---- | :---------------: | :-- |
 [`afk`](https://github.com/dsverdlo/minqlx-plugins#afk)|Detect AFK people and place them in spectator (after a warning).|[`raw`](https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/afk.py)
-[`anti-rape`](https://github.com/dsverdlo/minqlx-plugins#anti-rape)|In round-based game modes; apply calculated handicaps to people playing above the server average|[`raw`](https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/anti-rape.py)
+[`anti-rape`](https://github.com/dsverdlo/minqlx-plugins#anti-rape)|In round-based game modes; apply calculated handicaps to people playing above the server average|[`raw`](https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/anti_rape.py)
+[`auto_voice_switch`](https://github.com/dsverdlo/minqlx-plugins#auto_voice_switch)|Automatically switches voice from GLOBAL to TEAM ONLY when a team-based gametype match starts.|[`raw`](https://github.com/dsverdlo/minqlx-plugins/blob/master/auto_voice_switch.py)
 [`autospec`](https://github.com/dsverdlo/minqlx-plugins#autospec)|If CA or FT teams are uneven, make the last person spec.|[`raw`](https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/autospec.py)
 [`centerprint`](https://github.com/dsverdlo/minqlx-plugins#centerprint)|Provides easy way to broadcast messages on peoples screens, and provides a "last enemy standing" toggle.|[`raw`](https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/centerprint.py)
 [`disable_votes`](https://github.com/dsverdlo/minqlx-plugins#disable_votes)|Disable the ability to make certain callvotes during a game.|[`raw`](https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/disable_votes.py)
@@ -51,6 +52,16 @@ I can usually be found on IRC (http://webchat.quakenet.org/?channels=minqlbot).
   - !gaps [silent] - View all the players who are playing above the server average and how % they are above it. (add 'silent' if you don't want anyone to see it)
 - NOTES
   - **Disclaimer:** The term 'rape' in this context is only used to describe an overpowered online player making the game unfair for others below his skill level. It is not meant in any way to offend or refer to the horrible crime that is also known under this name.
+
+# **auto_voice_switch**
+- This plugin will automatically switch the voicechat setting to TEAM-ONLY during a match. When a change in the setting happens, all players will be notified with a center_print'ed message (as well as the message appearing in chat)
+- CVARS
+- COMMANDS
+  - !voicemode, !voicechat - Tells you what the current setting is
+  - !setvoicemode GLOBAL|TEAM - Manual override
+- NOTES
+  - For obvious reasons, this plugin does not bring much to the table for FFA and DUEL game modes.
+  - This plugin is the first to be a subclass of my iouonegirl plugin, which abstracts a lot of code. If any abnormal behavior is observed, please contact me with the details.
 
 # **autospec**
 - Displays a message during round countdown if teams are uneven, and forces the person (of the largest team) with the lowest score to spectate.
