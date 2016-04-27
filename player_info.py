@@ -22,7 +22,21 @@ import random
 import time
 import os
 
-VERSION = "v0.27"
+# This code makes sure the required superclass is loaded automatically
+try:
+    from .iouonegirl import iouonegirlPlugin
+except:
+    try:
+        abs_file_path = os.path.join(os.path.dirname(__file__), "iouonegirl.py")
+        res = requests.get("https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/iouonegirl.py")
+        if res.status_code != requests.codes.ok: raise
+        with open(abs_file_path,"a+") as f: f.write(res.text)
+        from .iouonegirl import iouonegirlPlugin
+    except Exception as e :
+        minqlx.CHAT_CHANNEL.reply("^1iouonegirl abstract plugin download failed^7: {}".format(e))
+        raise
+
+VERSION = "v0.28"
 
 PLAYER_KEY = "minqlx:players:{}"
 COMPLETED_KEY = PLAYER_KEY + ":games_completed"
@@ -37,9 +51,9 @@ DEFAULT_RATING = 1500
 SUPPORTED_GAMETYPES = ("ca", "ctf", "dom", "ft", "tdm")
 
 
-class player_info(minqlx.Plugin):
+class player_info(iouonegirlPlugin):
     def __init__(self):
-        super().__init__()
+        super().__init__(self.__class__.__name__, VERSION)
 
         # set cvars once. EDIT THESE IN SERVER.CFG
         self.set_cvar_once("qlx_balanceApi", "elo")
@@ -48,8 +62,6 @@ class player_info(minqlx.Plugin):
 
         self.add_command("info", self.cmd_player_info,  usage="[<id>|<name>]")
         self.add_command("scoreboard", self.cmd_scoreboard, usage="[<id>|<name>]")
-        self.add_command(("v_player_info", "version_player_info"), self.cmd_version)
-        self.add_command("update", self.cmd_autoupdate, 5, usage="<plugin>|all")
         self.add_command(("allelo", "allelos", "aelo", "eloall"), self.cmd_all_elos, usage="[<id>|<name>]")
 
         self.add_hook("player_connect", self.handle_player_connect, priority=minqlx.PRI_LOWEST)
@@ -59,35 +71,7 @@ class player_info(minqlx.Plugin):
         if self.get_cvar("qlx_pinfo_display_auto", int) or self.get_cvar("qlx_pinfo_show_deactivated", int):
             self.fetch(player, self.game.type_short, None)
 
-        if self.db.has_permission(player, 5):
-            self.check_version(player=player)
 
-    def cmd_version(self, player, msg, channel):
-        self.check_version(channel=channel)
-
-    @minqlx.thread
-    def check_version(self, player=None, channel=None):
-        url = "https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/{}.py".format(self.__class__.__name__)
-        res = requests.get(url)
-        last_status = res.status_code
-        if res.status_code != requests.codes.ok: return
-        for line in res.iter_lines():
-            if line.startswith(b'VERSION'):
-                line = line.replace(b'VERSION = ', b'')
-                line = line.replace(b'"', b'')
-                # If called manually and outdated
-                if channel and VERSION.encode() != line:
-                    channel.reply("^7Currently using ^3iou^7one^4girl^7's ^6{}^7 plugin ^1outdated^7 version ^6{}^7.".format(self.__class__.__name__, VERSION))
-                # If called manually and alright
-                elif channel and VERSION.encode() == line:
-                    channel.reply("^7Currently using ^3iou^7one^4girl^7's latest ^6{}^7 plugin version ^6{}^7.".format(self.__class__.__name__, VERSION))
-                # If routine check and it's not alright.
-                elif player and VERSION.encode() != line:
-                    time.sleep(15)
-                    try:
-                        player.tell("^3Plugin update alert^7:^6 {}^7's latest version is ^6{}^7 and you're using ^6{}^7!".format(self.__class__.__name__, line.decode(), VERSION))
-                    except Exception as e: minqlx.console_command("echo {}".format(e))
-                return
 
 
     def cmd_player_info(self, player, msg, channel):
@@ -143,18 +127,17 @@ class player_info(minqlx.Plugin):
             _ts = int((target.stats.time % 60000) / 1000)
             _dd = target.stats.damage_dealt
             _t = target.team
+            _ad = "{}^2ALIVE" if target.is_alive else "{}^1DEAD"
             _hc = int(target.cvars.get('handicap', 100))
             _c = '^7,'
             if _t == 'blue': _c = '^4,'
             if _t == 'red': _c = '^1,'
-            if _hc < 100:
-                _hc = '^7(^3{}％^7)'.format(_hc)
-            else:
-                _hc = ''
+            _hc = "^3{}％^7-".format(_hc) if (_hc < 100) else ''
+            _ad = _ad.format(_hc)
 
 
-            message = "{}{} {k}score ^7{}{c} {k}k/d ^7{}/{}{c} {k}dmg ^7{}{c} {k}time ^7{}m{}s{c} {k}ping ^7{} "
-            message = message.format(_n, _hc, _s, _k, _d, _dd, _tm, _ts, _p, c=_c, k=_c[0:-1])
+            message = "{}^7({}^7) {k}score ^7{}{c} {k}k/d ^7{}/{}{c} {k}dmg ^7{}{c} {k}time ^7{}m{}s{c} {k}ping ^7{}"
+            message = message.format(_n, _ad, _s, _k, _d, _dd, _tm, _ts, _p, c=_c, k=_c[0:-1])
             channel.reply("^7" + message)
 
         teams = self.teams()
@@ -274,85 +257,4 @@ class player_info(minqlx.Plugin):
         info.append("^3{} ^7{}ELO: ^6{}^7".format(self.game.type_short.upper(),'b' if self.get_cvar('qlx_balanceApi') == 'elo_b' else '', elo, games))
 
         return channel.reply("^6{}^7: ".format(name) + "^7, ".join(info) + "^7.")
-
-
-    # ====================================================================
-    #                               HELPERS
-    # ====================================================================
-
-
-    def find_by_name_or_id(self, player, target):
-        # Find players returns a list of name-matching players
-        def find_players(query):
-            players = []
-            for p in self.find_player(query):
-                if p not in players:
-                    players.append(p)
-            return players
-
-        # Tell a player which players matched
-        def list_alternatives(players, indent=2):
-            player.tell("A total of ^6{}^7 players matched for {}:".format(len(players),target))
-            out = ""
-            for p in players:
-                out += " " * indent
-                out += "{}^6:^7 {}\n".format(p.id, p.name)
-            player.tell(out[:-1])
-
-        # Get the list of matching players on name
-        target_players = find_players(target)
-
-        # even if we get only 1 person, we need to check if the input was meant as an ID
-        # if we also get an ID we should return with ambiguity
-
-        try:
-            i = int(target)
-            target_player = self.player(i)
-            if not (0 <= i < 64) or not target_player:
-                raise ValueError
-            # Add the found ID if the player was not already found
-            if not target_player in target_players:
-                target_players.append(target_player)
-        except ValueError:
-            pass
-
-        # If there were absolutely no matches
-        if not target_players:
-            player.tell("Sorry, but no players matched your tokens: {}.".format(target))
-            return None
-
-        # If there were more than 1 matches
-        if len(target_players) > 1:
-            list_alternatives(target_players)
-            return None
-
-        # By now there can only be one person left
-        return target_players.pop()
-
-
-    def cmd_autoupdate(self, player, msg, channel):
-        if len(msg) < 2:
-            return minqlx.RET_USAGE
-
-        if msg[1] in [self.__class__.__name__, 'all']:
-            self.update(player, msg, channel)
-
-    @minqlx.thread
-    def update(self, player, msg, channel):
-        try:
-            url = "https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/{}.py".format(self.__class__.__name__)
-            res = requests.get(url)
-            last_status = res.status_code
-            if res.status_code != requests.codes.ok: return
-            script_dir = os.path.dirname(__file__) #<-- absolute dir the script is in
-            abs_file_path = os.path.join(script_dir, "{}.py".format(self.__class__.__name__))
-            with open(abs_file_path,"w") as f:
-                f.write(res.text)
-            minqlx.reload_plugin(self.__class__.__name__)
-            channel.reply("^2updated ^3iou^7one^4girl^7's ^6{} ^7plugin to the latest version!".format(self.__class__.__name__))
-            #self.cmd_version(player, msg, channel)
-            return True
-        except Exception as e :
-            channel.reply("^1Update failed for {}^7: {}".format(self.__class__.__name__, e))
-            return False
 
