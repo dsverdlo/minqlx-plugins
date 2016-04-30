@@ -15,7 +15,7 @@ import time
 import os
 import requests
 
-VERSION = "v0.26"
+VERSION = "v0.27"
 
 class iouonegirlPlugin(minqlx.Plugin):
     def __init__(self, name, vers):
@@ -45,7 +45,10 @@ class iouonegirlPlugin(minqlx.Plugin):
         url = "{}{}.py".format(self._loc, self.__class__.__name__)
         res = requests.get(url)
         last_status = res.status_code
-        if res.status_code != requests.codes.ok: return
+        if res.status_code != requests.codes.ok:
+            if channel:
+                channel.reply("^7Currently using ^3iou^7one^4girl^7's ^6{}^7 plugin version ^6{}^7.".format(self.__class__.__name__, self._vers))
+            return
         for line in res.iter_lines():
             if line.startswith(b'VERSION'):
                 line = line.replace(b'VERSION = ', b'')
@@ -68,7 +71,7 @@ class iouonegirlPlugin(minqlx.Plugin):
         if len(msg) < 2:
             return minqlx.RET_USAGE
 
-        if msg[1] == "iouonegirlPlugin":
+        if msg[1].startswith("iouonegirl"):
             self.iouonegirlplugin_updateAbstract(player, msg, channel)
             return minqlx.RET_STOP
 
@@ -200,7 +203,7 @@ class iouonegirlPlugin(minqlx.Plugin):
     def delaymsg(self, messages, interval = 1):
         def msg(m):
             return lambda: minqlx.CHAT_CHANNEL.reply("^7{}".format(m)) if m else None
-        interval_functions(map(msg, messages), interval)
+        self.interval_functions(map(msg, messages), interval)
 
     # Executes functions in a seperate thread with a certain interval
     @minqlx.thread
