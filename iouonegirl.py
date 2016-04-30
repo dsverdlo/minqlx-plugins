@@ -15,7 +15,7 @@ import time
 import os
 import requests
 
-VERSION = "v0.27"
+VERSION = "v0.27 IMPORTANT"
 
 class iouonegirlPlugin(minqlx.Plugin):
     def __init__(self, name, vers):
