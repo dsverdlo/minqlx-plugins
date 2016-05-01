@@ -7,7 +7,8 @@
 #
 # This plugin disables (fun) sounds during a match.
 #
-# Thanks to ph0en|X for the idea of this plugin
+# Thanks to Cabbe and ph0en|X of TNT for their input
+# in the making of this plugin
 #
 # Uses:
 # set qlx_funlimit_messages "1"
@@ -19,7 +20,7 @@ import time
 import os
 import requests
 
-VERSION = "v0.1"
+VERSION = "v0.1.1"
 
 # This code makes sure the required superclass is loaded automatically
 try:
