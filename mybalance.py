@@ -69,7 +69,7 @@ import re
 
 from minqlx.database import Redis
 
-VERSION = "v0.56.1"
+VERSION = "v0.56.2"
 
 
 # This code makes sure the required superclass is loaded automatically
@@ -571,7 +571,7 @@ class mybalance(iouonegirlPlugin):
     # Goes off when new maps are loaded, games are aborted, games ended but stay on same map and matchstart
     @minqlx.delay(3)
     def handle_new_game(self):
-        if self.game.state == "countdown": return
+        if self.game.state in ["in_progress", "countdown"]: return
         self.game_active = False
         self.checking_balance = False
         self.check_warmup(time.time(), self.game.map)
