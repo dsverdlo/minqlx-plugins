@@ -69,7 +69,7 @@ import re
 
 from minqlx.database import Redis
 
-VERSION = "v0.56"
+VERSION = "v0.56.1"
 
 
 # This code makes sure the required superclass is loaded automatically
@@ -1358,7 +1358,7 @@ class mybalance(iouonegirlPlugin):
                 break
 
         if self.get_cvar("qlx_mybalance_exclude", int) and games < self.GAMES_NEEDED:
-            self.msg("{}'s ratings are too uninformative for this server. ({}/{} games played)".format(player.name, games, self.GAMES_NEEDED))
+            #self.msg("{}'s ratings are too uninformative for this server. ({}/{} games played)".format(player.name, games, self.GAMES_NEEDED))
             return ['uninformative', elo]
 
         if not elo and not games: return # allow person to join
