@@ -15,7 +15,7 @@ import time
 import os
 import requests
 
-VERSION = "v0.27 IMPORTANT"
+VERSION = "v0.28 IMPORTANT"
 
 class iouonegirlPlugin(minqlx.Plugin):
     def __init__(self, name, vers):
@@ -30,14 +30,16 @@ class iouonegirlPlugin(minqlx.Plugin):
         self.add_command(("v_iouonegirlplugin", "v_iouonegirlPlugin", "v_iouonegirl"), self.iouonegirlplugin_cmd_myversion)
         self.add_command("update", self.iouonegirlplugin_cmd_autoupdate, 5, usage="<plugin>|all")
         self.add_command("iouplugins", self.iouonegirlplugin_cmd_list)
+
         self.add_hook("player_connect", self.iouonegirlplugin_handle_player_connect)
 
 
     def iouonegirlplugin_cmd_version(self, player, msg, channel):
         self.iouonegirlplugin_check_version(player, channel)
 
+    # command for checking superclass plugin. One handler is enough
     def iouonegirlplugin_cmd_myversion(self, player, msg, channel):
-        channel.reply("^7Currently using ^3iou^7one^4girl^7's ^6iouonegirlPlugin ^7version ^6{}^7.".format(VERSION))
+        self.iouonegirlplugin_check_myversion(self, player=player, channel=channel)
         return minqlx.RET_STOP
 
     @minqlx.thread
@@ -46,8 +48,9 @@ class iouonegirlPlugin(minqlx.Plugin):
         res = requests.get(url)
         last_status = res.status_code
         if res.status_code != requests.codes.ok:
-            if channel:
-                channel.reply("^7Currently using ^3iou^7one^4girl^7's ^6{}^7 plugin version ^6{}^7.".format(self.__class__.__name__, self._vers))
+            m = "^7Currently using ^3iou^7one^4girl^7's ^6{}^7 plugin version ^6{}^7."
+            if channel: channel.reply(m.format(self.__class__.__name__, self._vers))
+            elif player: player.tell(m.format(self.__class__.__name__, self._vers))
             return
         for line in res.iter_lines():
             if line.startswith(b'VERSION'):
@@ -64,7 +67,36 @@ class iouonegirlPlugin(minqlx.Plugin):
                     time.sleep(15)
                     try:
                         player.tell("^3Plugin update alert^7:^6 {}^7's latest version is ^6{}^7 and you're using ^6{}^7!".format(self.__class__.__name__, line.decode(), self._vers))
-                    except Exception as e: minqlx.console_command("echo {}".format(e))
+                    except Exception as e: minqlx.console_command("echo Error: {}".format(e))
+                return
+
+    # Check abstract plugin version
+    @minqlx.thread
+    def iouonegirlplugin_check_myversion(self, player=None, channel=None):
+        url = "https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/iouonegirl.py"
+        res = requests.get(url)
+        last_status = res.status_code
+        if res.status_code != requests.codes.ok:
+            m = "^7Currently using ^3iou^7one^4girl^7's ^6iouonegirl^7 superplugin version ^6{}^7."
+            if channel: channel.reply(m.format(VERSION))
+            elif player: player.tell(m.format(VERSION))
+            return
+        for line in res.iter_lines():
+            if line.startswith(b'VERSION'):
+                line = line.replace(b'VERSION = ', b'')
+                line = line.replace(b'"', b'')
+                # If called manually and outdated
+                if channel and VERSION.encode() != line:
+                    channel.reply("^7Currently using ^3iou^7one^4girl^7's ^6iouonegirl^7 superplugin ^1OUTDATED^7 version ^6{}^7!".format(VERSION))
+                # If called manually and alright
+                elif channel and VERSION.encode() == line:
+                    channel.reply("^7Currently using ^3iou^7one^4girl^7's latest ^6iouonegirl^7 superplugin version ^6{}^7.".format(VERSION))
+                # If routine check and it's not alright.
+                elif player and VERSION.encode() != line:
+                    time.sleep(15)
+                    try:
+                        player.tell("^3Plugin update alert^7:^6 iouonegirl^7's latest version is ^6{}^7 and you're using ^6{}^7! ---> ^2!update iouonegirl".format(line.decode(), VERSION))
+                    except Exception as e: minqlx.console_command("echo IouoneError: {}".format(e))
                 return
 
     def iouonegirlplugin_cmd_autoupdate(self, player, msg, channel):
@@ -94,19 +126,11 @@ class iouonegirlPlugin(minqlx.Plugin):
             channel.reply("^7No iouonegirl plugins installed... Get some from ^6https://github.com/dsverdlo/minqlx-plugins")
         return minqlx.RET_STOP # once is enough, thanks
 
-    # We check the version of all iou plugins in ONE instance
-    # (instead of letting each iouplugin check it themselves)
+
     def iouonegirlplugin_handle_player_connect(self, player):
-        if not self.db.has_permission(player, 5):
-            return minqlx.RET_STOP # _ALL will result in noone being able to join
+        if self.db.has_permission(player, 5):
+            self.iouonegirlplugin_check_version(player=player)
 
-        # For each loaded plugin, if it is a subclass of this plugin, check version
-        for plugin_name in minqlx.Plugin._loaded_plugins:
-            plugin = minqlx.Plugin._loaded_plugins[plugin_name]
-            if iouonegirlPlugin in plugin.__class__.__bases__:
-                plugin.iouonegirlplugin_check_version(player=player)
-
-        return minqlx.RET_STOP # stop after ONE instance
 
     @minqlx.thread
     def iouonegirlplugin_update(self, player, msg, channel):
@@ -126,7 +150,7 @@ class iouonegirlPlugin(minqlx.Plugin):
 
     @minqlx.thread
     def iouonegirlplugin_updateAbstract(self, player, msg, channel):
-        url = "https://github.com/dsverdlo/minqlx-plugins/blob/master/iouonegirl.py"
+        url = "https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/iouonegirl.py"
         res = requests.get(url)
         if res.status_code != requests.codes.ok: return
         abs_file_path = os.path.join(os.path.dirname(__file__), "iouonegirl.py")
