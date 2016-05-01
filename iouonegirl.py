@@ -15,7 +15,7 @@ import time
 import os
 import requests
 
-VERSION = "v0.28 IMPORTANT"
+VERSION = "v0.29 IMPORTANT"
 
 class iouonegirlPlugin(minqlx.Plugin):
     def __init__(self, name, vers):
@@ -39,7 +39,7 @@ class iouonegirlPlugin(minqlx.Plugin):
 
     # command for checking superclass plugin. One handler is enough
     def iouonegirlplugin_cmd_myversion(self, player, msg, channel):
-        self.iouonegirlplugin_check_myversion(self, player=player, channel=channel)
+        self.iouonegirlplugin_check_myversion(player=player, channel=channel)
         return minqlx.RET_STOP
 
     @minqlx.thread
