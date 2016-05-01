@@ -6,7 +6,8 @@
 # except for the version command related code.
 #
 # Its purpose is to detect afk players and provide actions
-# to be taken on them.
+# to be taken on them. For now only working in team-based
+# gametypes.
 #
 # Uses:
 # - qlx_afk_warning_seconds "10"
@@ -17,9 +18,10 @@
 import minqlx
 import threading
 import time
+import os
 import requests
 
-VERSION = "v0.5"
+VERSION = "v0.14"
 
 VAR_WARNING = "qlx_afk_warning_seconds"
 VAR_DETECTION = "qlx_afk_detection_seconds"
@@ -28,9 +30,25 @@ VAR_PUT_SPEC = "qlx_afk_put_to_spec"
 # Interval for the thread to update positions. Default = 0.33
 interval = 0.33
 
-class afk(minqlx.Plugin):
+# This code makes sure the required superclass is loaded automatically
+try:
+    from .iouonegirl import iouonegirlPlugin
+except:
+    try:
+        abs_file_path = os.path.join(os.path.dirname(__file__), "iouonegirl.py")
+        res = requests.get("https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/iouonegirl.py")
+        if res.status_code != requests.codes.ok: raise
+        with open(abs_file_path,"a+") as f: f.write(res.text)
+        from .iouonegirl import iouonegirlPlugin
+    except Exception as e :
+        minqlx.CHAT_CHANNEL.reply("^1iouonegirl abstract plugin download failed^7: {}".format(e))
+        raise
+
+# Start plugin
+class afk(iouonegirlPlugin):
 
     def __init__(self):
+        super().__init__(self.__class__.__name__, VERSION)
 
         # Set required cvars once. DONT EDIT THEM HERE BUT IN SERVER.CFG
         self.set_cvar_once(VAR_WARNING, "10")
@@ -51,16 +69,13 @@ class afk(minqlx.Plugin):
         # punished players
         self.punished = []
 
-        self.add_command("v_afk", self.cmd_version)
         self.add_hook("round_start", self.handle_round_start)
         self.add_hook("round_end", self.handle_round_end)
         self.add_hook("team_switch", self.handle_player_switch)
         self.add_hook("unload", self.handle_unload)
-        self.add_hook("player_connect", self.handle_player_connect)
 
-    def handle_player_connect(self, player):
-        if self.db.has_permission(player, 5):
-            self.check_version(player=player)
+
+
 
 
     def handle_unload(self, plugin):
@@ -77,7 +92,7 @@ class afk(minqlx.Plugin):
 
         # start checking thread
         self.running = True
-        threading.Thread(target=self.help_create_thread).start()
+        self.help_create_thread()
 
     def handle_round_end(self, round_number):
         self.running = False
@@ -93,35 +108,9 @@ class afk(minqlx.Plugin):
         if new in ['red', 'blue']:
             self.positions[player.steam_id] = [self.help_get_pos(player), 0]
 
-    def cmd_version(self, player, msg, channel):
-        self.check_version(channel=channel)
-
     @minqlx.thread
-    def check_version(self, player=None, channel=None):
-        url = "https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/{}.py".format(self.__class__.__name__)
-        res = requests.get(url)
-        last_status = res.status_code
-        if res.status_code != requests.codes.ok: return
-        for line in res.iter_lines():
-            if line.startswith(b'VERSION'):
-                line = line.replace(b'VERSION = ', b'')
-                line = line.replace(b'"', b'')
-                # If called manually and outdated
-                if channel and VERSION.encode() != line:
-                    channel.reply("^7Currently using ^3iou^7one^4girl^7's ^6{}^7 plugin ^1outdated^7 version ^6{}^7.".format(self.__class__.__name__, VERSION))
-                # If called manually and alright
-                elif channel and VERSION.encode() == line:
-                    channel.reply("^7Currently using ^3iou^7one^4girl^7's latest ^6{}^7 plugin version ^6{}^7.".format(self.__class__.__name__, VERSION))
-                # If routine check and it's not alright.
-                elif player and VERSION.encode() != line:
-                    time.sleep(15)
-                    try:
-                        player.tell("^3Plugin update alert^7:^6 {}^7's latest version is ^6{}^7 and you're using ^6{}^7!".format(self.__class__.__name__, line.decode(), VERSION))
-                    except Exception as e: minqlx.console_command("echo {}".format(e))
-                return
-
     def help_create_thread(self):
-        while self.running and self.game.state == 'in_progress':
+        while self.running and self.game and self.game.state == 'in_progress':
             teams = self.teams()
             for p in teams['red'] + teams['blue']:
                 pid = p.steam_id
@@ -147,10 +136,12 @@ class afk(minqlx.Plugin):
 
             time.sleep(interval)
 
+    @minqlx.next_frame
     def help_warn(self, player):
         message = "You have been inactive for {} seconds...".format(self.warning)
         minqlx.send_server_command(player.id, "cp \"\n\n\n{}\"".format(message))
 
+    @minqlx.next_frame
     def help_detected_print(self, player):
         self.msg("^1{} ^1has been inactive for {} seconds! Commencing punishment!".format(player.name, int(self.positions[player.steam_id][1])))
         self.punished.append(player)
@@ -159,22 +150,30 @@ class afk(minqlx.Plugin):
 
     @minqlx.thread
     def punish(self, player, pain=10, wait=0.5):
-        while self.game.state == 'in_progress' and player in self.punished:
-            if player.health >= pain:
-                player.health -= pain
-                if player.steam_id in self.positions:
-                    s = int((self.positions[player.steam_id])[1])
-                else:
-                    s = self.detection
-                message = "^1Inactive for {} seconds! \n\n^7Move or keep getting damage!".format(s)
-                minqlx.send_server_command(player.id, "cp \"\n\n\n{}\"".format(message))
-                time.sleep(wait)
-            else:
+        @minqlx.next_frame
+        def spec(_p): _p.put('spectator')
+        @minqlx.next_frame
+        def subtract_health(_p, _h): _p.health -= _h
+
+        while self.game and self.game.state == 'in_progress' and player in self.punished:
+            if not player.is_alive or player.health < pain:
+                self.punished.remove(player)
+                if self.put_to_spec: spec(player)
                 break
-        self.punished.remove(player)
-        if self.put_to_spec: player.put('spectator')
+
+            subtract_health(player, pain)
+            if player.steam_id in self.positions:
+                s = int((self.positions[player.steam_id])[1])
+            else:
+                s = self.detection
+            message = "^1Inactive for {} seconds! \n\n^7Move or keep getting damage!".format(s)
+            minqlx.send_server_command(player.id, "cp \"\n\n\n{}\"".format(message))
+            time.sleep(wait)
+
+
         return
 
 
     def help_get_pos(self, player):
         return player.position()
+
