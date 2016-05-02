@@ -14,8 +14,9 @@ import threading
 import time
 import os
 import requests
+import re
 
-VERSION = "v0.29 IMPORTANT"
+VERSION = "v0.29.1 IMPORTANT"
 
 class iouonegirlPlugin(minqlx.Plugin):
     def __init__(self, name, vers):
