@@ -25,6 +25,7 @@ I can usually be found on IRC (http://webchat.quakenet.org/?channels=minqlbot).
 [`centerprint`](https://github.com/dsverdlo/minqlx-plugins#centerprint)|Provides easy way to broadcast messages on peoples screens, and provides a "last enemy standing" toggle.|[`raw`](https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/centerprint.py)
 [`disable_votes`](https://github.com/dsverdlo/minqlx-plugins#disable_votes)|Disable the ability to make certain callvotes during a game.|[`raw`](https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/disable_votes.py)
 [`gauntonly`](https://github.com/dsverdlo/minqlx-plugins#gauntonly)|When 1 last standing person faces a lot of enemies, start gauntonly mode.|[`raw`](https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/gauntonly.py)
+[`funlimit`](https://github.com/dsverdlo/minqlx-plugins#funlimit)|Automatically disables fun(.py) sounds during a match/rounds.|[`raw`](https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/funlimit.py)
 [`intermission`](https://github.com/dsverdlo/minqlx-plugins#intermission)|Play 1 song out of a list after every match end.|[`raw`](https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/intermission.py)
 [`mybalance`](https://github.com/dsverdlo/minqlx-plugins#mybalance)|Elo-limits, warmup reminders, team balancing for CA,TDM,CTF,FT.|[`raw`](https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/mybalance.py)
 [`myban`](https://github.com/dsverdlo/minqlx-plugins#myban)|Use the !ban command with a player's name instead of ID.|[`raw`](https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/myban.py)
@@ -91,6 +92,14 @@ I can usually be found on IRC (http://webchat.quakenet.org/?channels=minqlbot).
   - set qlx_gaunt_min "2"
   - set qlx_gaunt_max "4"
 
+# **funlimit**
+- Annoyed with the 'fun' sounds constantly being spammed? This plugin will disable all the sounds of fun.py when a match is in progress. In between rounds it is also shortly turned on, for round-based game-types.
+- CVARS
+  - qlx_funlimit_messages "1" (this will display a message in chat everytime the sounds are enabled/disabled)
+-  COMMANDS
+  - !funsounds - This command will tell you if fun sounds are currently enabled or disabled
+-  NOTES
+
 # **intermission**
 - A music plugin similar to roasticle's intermission. This plugin will loop over a specified collection of sounds/music, by playing one sound at the end of a match. Upload sounds/music in a PK3 file to the workshop for it to work.
 - CVARS
@@ -100,7 +109,7 @@ I can usually be found on IRC (http://webchat.quakenet.org/?channels=minqlbot).
 
 # **mybalance**
 - This plugin is designed to be used TOGETHER with Mino's balance plugin, but adds some more features, like skill rating-limits for connecting players, using the elo commands by names, and applying an action to the last person on uneven teams (slay, spec or ignore).
-Furthermore this plugin uses a text file in which exceptions can be placed for the elo restrictions, and adds a little bump to the elo restriction for regular players. Players falling outside the provided skill rating interval can be blocked on their connection screen, be kicked after a while on the server, or can be allowed to just spectate. Furthermore warmup reminders can be scheduled to repeat at certain intervals to remind players to ready up. In CTF and TDM matches (no rounds), a player will be frozen in place until the teams are even again. Otherwise he is sent back to spectator. 
+Furthermore this plugin uses a text file in which exceptions can be placed for the elo restrictions, and adds a little bump to the elo restriction for regular players. Players falling outside the provided skill rating interval can be blocked on their connection screen, be kicked after a while on the server, or can be allowed to just spectate. Furthermore warmup reminders can be scheduled to repeat at certain intervals to remind players to ready up (if warmup takes too long). In CTF and TDM matches (no rounds), a player will be frozen in place until the teams are even again. Otherwise he is sent back to spectator. 
 - CVARS
   - qlx_elo_limit_min "0"
   - qlx_elo_limit_max "1600"
@@ -110,6 +119,7 @@ Furthermore this plugin uses a text file in which exceptions can be placed for t
   - qlx_mybalance_exclude "0" (set "1" if you want to kick players who don't have enough info/games)
   - qlx_elo_kick "1" (set "1" to kick spectators after they joined)
   - qlx_elo_block_connecters "0" (set "1" to block players from connecting)
+  - qlx_elo_close_enough "20" (if block_connecters is on, you can allow some people to join the server, who are 'close enough' to the limit, and they will get a normal kick. (which can be canceled via !nokick). Example, limit is 1800, then someone with 1805 will not be blocked, but get a normal kick)
   - qlx_mybalance_warmup_seconds "300" (how many seconds of warmup before readyup messages come. Set to -1 to disable)
   - qlx_mybalance_warmup_interval "60" (interval in seconds for readyup messages)
   - qlx_mybalance_uneven_time "10" (for CTF and TDM, specify how many seconds to wait before balancing uneven teams)
