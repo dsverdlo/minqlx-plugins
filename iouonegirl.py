@@ -223,7 +223,7 @@ class iouonegirlPlugin(minqlx.Plugin):
     def delaytell(self, messages, player, interval = 1):
         def tell(mess):
             return lambda: player.tell("^6{}".format(mess)) if mess else None
-        interval_functions(map(tell, messages), interval)
+        self.interval_functions(map(tell, messages), interval)
 
     def delaymsg(self, messages, interval = 1):
         def msg(m):
