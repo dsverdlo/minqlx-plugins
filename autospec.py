@@ -5,71 +5,98 @@
 # You are free to modify this plugin to your custom,
 # except for the version command related code.
 #
-# Thanks to Minkyn for his assistance.
+# Thanks to Minkyn for his assistance in this plugin.
 #
 # Its purpose if to force the last player to spectate
 # Algorithm: http://i.imgur.com/8P60gRq.png
 #
 # Uses:
-# qlx_autospec_minplayers "2"
+# set qlx_autospec_minplayers "2"
+# set qlx_autospec_maxplayers "999"
+#     ^ The autospec algorithm will only work for #players within this interval
 
 import minqlx
-import time
 import requests
+import itertools
+import threading
+import random
+import time
+import os
+import re
 
-VERSION = "v0.17"
+VERSION = "v0.19"
 
-class autospec(minqlx.Plugin):
+# This code makes sure the required superclass is loaded automatically
+try:
+    from .iouonegirl import iouonegirlPlugin
+except:
+    try:
+        abs_file_path = os.path.join(os.path.dirname(__file__), "iouonegirl.py")
+        res = requests.get("https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/iouonegirl.py")
+        if res.status_code != requests.codes.ok: raise
+        with open(abs_file_path,"a+") as f: f.write(res.text)
+        from .iouonegirl import iouonegirlPlugin
+    except Exception as e :
+        minqlx.CHAT_CHANNEL.reply("^1iouonegirl abstract plugin download failed^7: {}".format(e))
+        raise
+
+
+class autospec(iouonegirlPlugin):
     def __init__(self):
-        super().__init__()
+        super().__init__(self.__class__.__name__, VERSION)
 
         self.jointimes = {}
 
         self.set_cvar_once("qlx_autospec_minplayers", "2")
+        self.set_cvar_once("qlx_autospec_maxplayers", "999")
 
-        self.add_command("v_autospec", self.cmd_version)
         self.add_hook("round_countdown", self.handle_round_count)
         self.add_hook("round_start", self.handle_round_start)
         self.add_hook("player_connect", self.handle_player_connect)
         self.add_hook("player_disconnect", self.handle_player_disconnect)
 
+
     def handle_player_connect(self, player):
         self.jointimes[player.steam_id] = time.time()
 
-        if self.db.has_permission(player, 5):
-            self.check_version(player=player)
 
     def handle_player_disconnect(self, player, reason):
         if player.steam_id in self.jointimes:
             del self.jointimes[player.steam_id]
+
 
     def find_time(self, player):
         if not (player.steam_id in self.jointimes):
             self.jointimes[player.steam_id] = time.time()
         return self.jointimes[player.steam_id]
 
+
+    # When a round starts counting down, we check some conditions
+    # and show a comforting message about how we will balance the
+    # teams before the round starts
     def handle_round_count(self, round_number):
-        def is_even(n):
-            return n % 2 == 0
 
-        def red_min_blue():
-            t = self.teams()
-            return len(t['red']) - len(t['blue'])
-
-        # Grab the teams
+        # Grab the teams and amount of players in each team
         teams = self.teams()
         player_count = len(teams["red"] + teams["blue"])
 
-        if player_count < int(self.get_cvar("qlx_autospec_minplayers")):
+        # If not enough players to balance...
+        if player_count < self.get_cvar("qlx_autospec_minplayers", int):
             return
 
-        # If there is a difference in teams of more than 1
-        diff = red_min_blue()
+        # if so many players that we don't care
+        if player_count > self.get_cvar("qlx_autospec_maxplayers", int):
+            return
+
+        diff = len(teams['red']) - len(teams['blue'])
         to, fr = ['blue', 'red'] if diff > 0 else ['red','blue']
         last = self.help_get_last()
-        n = int(abs(diff) / 2)
+        n = int(abs(diff) / 2) # amount of players that will be switched
+
+        # If there is a difference in teams of more or equal than 1,
+        # Display what is going to happen
         if abs(diff) >= 1:
-            if is_even(diff):
+            if self.is_even(diff):
                 n = last.name if n == 1 else "{} players".format(n)
                 self.msg("^6Uneven teams detected!^7 Server will move {} to {}".format(n, to))
             else:
@@ -77,31 +104,38 @@ class autospec(minqlx.Plugin):
                 m = " and move the {} to {}".format(m, to) if n else ''
                 self.msg("^6Uneven teams detected!^7 Server will auto spec {}{}.".format(last.name, m))
 
+        # Start counting (in a thread) to just before a round and then balance
+        # So that switched players can still participate in the coming round
         self.balance_before_start(round_number)
 
-    # If there is no round delay, then round_count hasnt been called.
+
+    # To be sure no one joined in the last millisecond, or in the case that
+    # there was no round delay, check again on round start
     def handle_round_start(self, round_number):
-        if self.game.type_short == "ft":
-            if not int(self.get_cvar('g_freezeRoundDelay')):
-                self.handle_round_count(round_number)
-        else:
-            if not int(self.get_cvar('g_roundWarmupDelay')):
-                self.handle_round_count(round_number)
+        self.balance_before_start(round_number, True)
 
+
+    # Wait until just before the round starts and then balance
     @minqlx.thread
-    def balance_before_start(self, roundnumber):
-        def is_even(n):
-            return n % 2 == 0
-
-        def red_min_blue():
-            t = self.teams()
-            return len(t['red']) - len(t['blue'])
+    def balance_before_start(self, roundnumber, direct = False):
 
         # Wait until round almost starts
         countdown = int(self.get_cvar('g_roundWarmupDelay'))
         if self.game.type_short == "ft":
             countdown = int(self.get_cvar('g_freezeRoundDelay'))
-        time.sleep(max(countdown / 1000 - 0.3, 0))
+        if not direct: time.sleep(max(countdown / 1000 - 0.3, 0))
+
+        # Do the thing (game logic) in next frame
+        self.balance_before_start_next_frame()
+
+
+    # Move players around, make the teams even
+    @minqlx.next_frame
+    def balance_before_start_next_frame(self):
+
+        def red_min_blue():
+            t = self.teams()
+            return len(t['red']) - len(t['blue'])
 
         # Grab the teams
         teams = self.teams()
@@ -112,15 +146,19 @@ class autospec(minqlx.Plugin):
             return
 
         # If there are less people than wanted, ignore
-        if player_count < int(self.get_cvar("qlx_autospec_minplayers")):
+        if player_count < self.get_cvar("qlx_autospec_minplayers", int):
             return
 
-        # While there is a difference in teams of more than 1
+        # If there are so many players that we don't care:
+        if player_count > self.get_cvar("qlx_autospec_maxplayers", int):
+            return
+
+        # While there is a difference in teams of more or equal than 1
         while abs(red_min_blue()) >= 1:
             last = self.help_get_last()
             diff = red_min_blue()
 
-            if is_even(diff): # one team has an even amount of people more than the other
+            if self.is_even(diff): # one team has an even amount of people more than the other
 
                 to, fr = ['blue','red'] if diff > 0 else ['red', 'blue']
                 last.put(to)
@@ -133,38 +171,8 @@ class autospec(minqlx.Plugin):
 
 
 
-
-
-
-    def cmd_version(self, player, msg, channel):
-        self.check_version(channel=channel)
-
-    @minqlx.thread
-    def check_version(self, player=None, channel=None):
-        url = "https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/{}.py".format(self.__class__.__name__)
-        res = requests.get(url)
-        last_status = res.status_code
-        if res.status_code != requests.codes.ok: return
-        for line in res.iter_lines():
-            if line.startswith(b'VERSION'):
-                line = line.replace(b'VERSION = ', b'')
-                line = line.replace(b'"', b'')
-                # If called manually and outdated
-                if channel and VERSION.encode() != line:
-                    channel.reply("^7Currently using ^3iou^7one^4girl^7's ^6{}^7 plugin ^1outdated^7 version ^6{}^7.".format(self.__class__.__name__, VERSION))
-                # If called manually and alright
-                elif channel and VERSION.encode() == line:
-                    channel.reply("^7Currently using ^3iou^7one^4girl^7's latest ^6{}^7 plugin version ^6{}^7.".format(self.__class__.__name__, VERSION))
-                # If routine check and it's not alright.
-                elif player and VERSION.encode() != line:
-                    time.sleep(15)
-                    try:
-                        player.tell("^3Plugin update alert^7:^6 {}^7's latest version is ^6{}^7 and you're using ^6{}^7!".format(self.__class__.__name__, line.decode(), VERSION))
-                    except Exception as e: minqlx.console_command("echo {}".format(e))
-                return
-
-
-
+    # Returns the last player of the team with the largest amount of players
+    # Sorted by score. If lowest score is equal, look at jointimes.
     def help_get_last(self):
 
         teams = self.teams()
@@ -177,7 +185,7 @@ class autospec(minqlx.Plugin):
 
         if (self.game.red_score + self.game.blue_score) >= 1:
 
-            minqlx.console_command("echo Picking someone to spec based on score")
+            minqlx.console_command("echo Autospec: Picking someone to spec based on score")
             # Get the last person in that team
             lowest_players = [bigger_team[0]]
 
@@ -193,9 +201,11 @@ class autospec(minqlx.Plugin):
 
         else:
 
-            minqlx.console_command("echo Picking someone to spec based on join times.")
+            minqlx.console_command("echo Autospec: Picking someone to spec based on join times.")
             bigger_team.sort(key = lambda el: self.find_time(el), reverse=True)
             lowest_player = bigger_team[0]
 
-        minqlx.console_command("echo Picked {} from the {} team.".format(lowest_player.name, lowest_player.team))
+        minqlx.console_command("echo Autospec: Picked {} from the {} team.".format(lowest_player.name, lowest_player.team))
         return lowest_player
+
+
