@@ -5,18 +5,22 @@
 # You are free to modify this plugin to your custom,
 # except for the version command related code.
 #
-# Thanks to Bus Station, Minkyn, Melodeiro, BarelyMiSSeD
-# for their input on this plugin.
+# Thanks to Bus Station, Minkyn, Melodeiro, BarelyMiSSeD,
+# TNT for their input on this plugin.
 #
-# Its purpose is to balance the teams out. For now we don't
-# have ways to compare players, so that might be added later
-# for now it can move players by name, and perform an action
-# to the lowest score. (or person last to join)
+# Its purpose is to balance the games on a server out.
+# Some features of this plugin include:
+# - setting up an ELO* limit (minimum and maximum values)
+# - kicking players outside this limit
+# - - prevent players from getting kicked with !nokick
+# - allowing players outside the limit to only spec
+# - blocking players outside the limit from connecting
+# - - block players, but normal kick those who are close_enough
+# - Uneven teams action: spec, slay, ignore
+# - Display ready-up interval reminders during a long warmup
+# - Optional autoshuffle before a match (disables shuffle callvotes)
+# - Freezes then specs players while teams are uneven in CTF and TDM
 #
-# Update: the original balance plugin now balances people on elo.
-# this plugin does improve upon it by vetoing NO to shuffles on
-# uneven teams, and kicking people if they fall below server elo
-# requirements
 #
 # Uses:
 # - set qlx_elo_limit_min "0"
@@ -69,7 +73,7 @@ import re
 
 from minqlx.database import Redis
 
-VERSION = "v0.56.2"
+VERSION = "v0.56.3"
 
 
 # This code makes sure the required superclass is loaded automatically
@@ -215,16 +219,6 @@ class mybalance(iouonegirlPlugin):
         if self.game_active and self.game.type_short in ['ctf', 'tdm']:
             self.balance_before_start(self.game.type_short, True)
 
-##    @minqlx.delay(2)
-##    def unload_overlapping_commands(self):
-##        try:
-##            balance = minqlx.Plugin._loaded_plugins['balance']
-##            remove_commands = set(['setrating', 'getrating', 'remrating'])
-##            for cmd in balance.commands.copy():
-##                if remove_commands.intersection(cmd.name):
-##                    balance.remove_command(cmd.name, cmd.handler)
-##        except Exception as e:
-##            pass
 
     def cmd_elo_type(self, player, msg, channel):
         if len(msg) < 2:
@@ -663,6 +657,7 @@ class mybalance(iouonegirlPlugin):
                         # Evaluate if their skill rating is not allowed on server
                         _elo, _games = [p[gt]['elo'], p[gt]['games']] if gt in p else [0,0]
                         eval_elo = self.evaluate_elo_games(player, _elo, _games )
+
                         # If it's too high, but it is close enough to the limit, start kickthread
                         if eval_elo and eval_elo[0] == "high" and (eval_elo[1] - self.ELO_MAX) <= self.get_cvar("qlx_elo_close_enough",int):
                             self.msg("^7Connecting player ({}^7)'s glicko ^6{}^7 is too high, but maybe close enough for a ^2!nokick ^7?".format(player.name, eval_elo[1]))
@@ -678,6 +673,15 @@ class mybalance(iouonegirlPlugin):
                         # If it's still not allowed, block connection
                         elif eval_elo:
                             return "^1Sorry, but your skill rating {} is too {}!".format(eval_elo[1], eval_elo[0])
+
+                        # If the player was found, he will have been blocked or fetched
+                        return
+
+                # If the player we want was not returned, and we are strict, block him
+                if self.get_cvar("qlx_mybalance_exclude",int):
+                    return "This server requires a minimum of {} {} games".format(self.GAMES_NEEDED, self.game.type_short.upper())
+
+
 
             except Exception as e:
                 minqlx.console_command("echo MybalanceError: {}".format(e))
