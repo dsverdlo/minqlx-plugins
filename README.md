@@ -60,9 +60,10 @@ I can usually be found on IRC (http://webchat.quakenet.org/?channels=minqlbot).
 - NOTES
 
 # **autospec**
-- Displays a message during round countdown if teams are uneven, and forces the person (of the largest team) with the lowest score to spectate.
+- Displays a message during round countdown if teams are uneven, and forces the person (of the largest team) with the lowest score to spectate. If there is a big difference between teams, players will be autom. moved over.
 - CVARS
   - qlx_autospec_minplayers "2" (The minimum amount of players needed on the server to work)
+  - qlx_autospec_maxplayers "99" (If there are more players than this cvar, autospec won't operate)
 
 # **centerprint**
 - Provides a way to broadcast a message on everyone's screen, or just to individual people. Handy for important server announcements. Also shows a 'One enemy left' message on the screen if people want it. 
