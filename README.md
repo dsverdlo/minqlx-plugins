@@ -2,7 +2,7 @@
 
 This repo will contain several plugins which I have developed for [Mino's minqlx](https://github.com/MinoMino/minqlx "MinoMino/minqlx").
 
-Most ideas have been created, worked out and evaluated on <station.boards.net>, the official forum of the 'Bus Station' servers.
+Most ideas have been created, worked out and evaluated on <http://station.boards.net>, the official forum of the 'Bus Station' servers.
 
 If you wish to use my plugins, I'd really appreciate a small message, either via email, steam or on the forum. 
 This way the people who have worked so hard on them get some praise and we know which servers are using them.
