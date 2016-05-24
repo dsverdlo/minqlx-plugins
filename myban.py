@@ -32,16 +32,27 @@ LENGTH_REGEX = re.compile(r"(?P<number>[0-9]+) (?P<scale>seconds?|minutes?|hours
 TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 PLAYER_KEY = "minqlx:players:{}"
 
-VERSION = "v0.14"
+# This code makes sure the required superclass is loaded automatically
+try:
+    from .iouonegirl import iouonegirlPlugin
+except:
+    try:
+        abs_file_path = os.path.join(os.path.dirname(__file__), "iouonegirl.py")
+        res = requests.get("https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/iouonegirl.py")
+        if res.status_code != requests.codes.ok: raise
+        with open(abs_file_path,"a+") as f: f.write(res.text)
+        from .iouonegirl import iouonegirlPlugin
+    except Exception as e :
+        minqlx.CHAT_CHANNEL.reply("^1iouonegirl abstract plugin download failed^7: {}".format(e))
+        raise
 
-class myban(minqlx.Plugin):
+VERSION = "v0.15"
+
+class myban(iouonegirlPlugin):
     def __init__(self):
-        super().__init__()
+        super().__init__(self.__class__.__name__, VERSION)
 
-        try:
-            minqlx.unload_plugin('ban')
-        except Exception as e:
-            pass
+        self.unload_ban()
 
         self.add_hook("player_connect", self.handle_player_connect, priority=minqlx.PRI_HIGH)
         self.add_hook("player_loaded", self.handle_player_loaded)
@@ -54,7 +65,6 @@ class myban(minqlx.Plugin):
         self.add_command("unban", self.cmd_unban, 2, usage="<id>")
         self.add_command("checkban", self.cmd_checkban, usage="<id>")
         self.add_command("forgive", self.cmd_forgive, 2, usage="<id> [leaves_to_forgive]")
-        self.add_command("v_myban", self.cmd_version)
 
         # Cvars.
         self.set_cvar_once("qlx_leaverBan", "0")
@@ -65,6 +75,14 @@ class myban(minqlx.Plugin):
         # List of players playing that could potentially be considered leavers.
         self.players_start = []
         self.pending_warnings = {}
+
+    @minqlx.delay(3)
+    def unload_ban(self):
+        try:
+            minqlx.unload_plugin('ban')
+        except Exception as e:
+            pass
+
 
     def handle_player_connect(self, player):
 
@@ -394,79 +412,3 @@ class myban(minqlx.Plugin):
     def warn_player(self, player, ratio):
         player.tell("^7You have only completed ^6{}^7 percent of your games.".format(round(ratio * 100, 1)))
         player.tell("^7If you keep leaving you ^6will^7 be banned.")
-
-    def cmd_version(self, player, msg, channel):
-        self.check_version(channel=channel)
-
-    @minqlx.thread
-    def check_version(self, player=None, channel=None):
-        url = "https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/{}.py".format(self.__class__.__name__)
-        res = requests.get(url)
-        last_status = res.status_code
-        if res.status_code != requests.codes.ok: return
-        for line in res.iter_lines():
-            if line.startswith(b'VERSION'):
-                line = line.replace(b'VERSION = ', b'')
-                line = line.replace(b'"', b'')
-                # If called manually and outdated
-                if channel and VERSION.encode() != line:
-                    channel.reply("^7Currently using ^3iou^7one^4girl^7's ^6{}^7 plugin ^1outdated^7 version ^6{}^7.".format(self.__class__.__name__, VERSION))
-                # If called manually and alright
-                elif channel and VERSION.encode() == line:
-                    channel.reply("^7Currently using ^3iou^7one^4girl^7's latest ^6{}^7 plugin version ^6{}^7.".format(self.__class__.__name__, VERSION))
-                # If routine check and it's not alright.
-                elif player and VERSION.encode() != line:
-                    time.sleep(15)
-                    try:
-                        player.tell("^3Plugin update alert^7:^6 {}^7's latest version is ^6{}^7 and you're using ^6{}^7!".format(self.__class__.__name__, line.decode(), VERSION))
-                    except Exception as e: minqlx.console_command("echo {}".format(e))
-                return
-
-
-    def find_by_name_or_id(self, player, target):
-        # Find players returns a list of name-matching players
-        def find_players(query):
-            players = []
-            for p in self.find_player(query):
-                if p not in players:
-                    players.append(p)
-            return players
-
-        # Tell a player which players matched
-        def list_alternatives(players, indent=2):
-            player.tell("A total of ^6{}^7 players matched for {}:".format(len(players),target))
-            out = ""
-            for p in players:
-                out += " " * indent
-                out += "{}^6:^7 {}\n".format(p.id, p.name)
-            player.tell(out[:-1])
-
-        # Get the list of matching players on name
-        target_players = find_players(target)
-
-        # even if we get only 1 person, we need to check if the input was meant as an ID
-        # if we also get an ID we should return with ambiguity
-
-        try:
-            i = int(target)
-            target_player = self.player(i)
-            if not (0 <= i < 64) or not target_player:
-                raise ValueError
-            # Add the found ID if the player was not already found
-            if not target_player in target_players:
-                target_players.append(target_player)
-        except ValueError:
-            pass
-
-        # If there were absolutely no matches
-        if not target_players:
-            player.tell("Sorry, but no players matched your tokens: {}.".format(target))
-            return None
-
-        # If there were more than 1 matches
-        if len(target_players) > 1:
-            list_alternatives(target_players)
-            return None
-
-        # By now there can only be one person left
-        return target_players.pop()
