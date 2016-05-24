@@ -38,18 +38,29 @@ from collections import deque
 DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 TIME_FORMAT = "%H:%M:%S"
 
-VERSION = "v0.9"
+# This code makes sure the required superclass is loaded automatically
+try:
+    from .iouonegirl import iouonegirlPlugin
+except:
+    try:
+        abs_file_path = os.path.join(os.path.dirname(__file__), "iouonegirl.py")
+        res = requests.get("https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/iouonegirl.py")
+        if res.status_code != requests.codes.ok: raise
+        with open(abs_file_path,"a+") as f: f.write(res.text)
+        from .iouonegirl import iouonegirlPlugin
+    except Exception as e :
+        minqlx.CHAT_CHANNEL.reply("^1iouonegirl abstract plugin download failed^7: {}".format(e))
+        raise
 
-class myessentials(minqlx.Plugin):
+VERSION = "v0.10"
+
+class myessentials(iouonegirlPlugin):
     database = minqlx.database.Redis
 
     def __init__(self):
-        super().__init__()
+        super().__init__(self.__class__.__name__, VERSION)
 
-        try:
-            minqlx.unload_plugin('essentials')
-        except Exception as e:
-            pass
+        self.unload_essentials()
 
         self.add_hook("player_connect", self.handle_player_connect)
         self.add_hook("player_disconnect", self.handle_player_disconnect)
@@ -97,7 +108,7 @@ class myessentials(minqlx.Plugin):
         self.add_command(("teamsize", "ts"), self.cmd_teamsize, 2, usage="<size>")
         self.add_command("rcon", self.cmd_rcon, 5)
         self.add_command(("mappool", "maps", "maplist"), self.cmd_mappool, client_cmd_perm=0)
-        self.add_command("v_myessentials", self.cmd_version)
+
 
         # Cvars.
         self.set_cvar_once("qlx_votepass", "1")
@@ -126,6 +137,13 @@ class myessentials(minqlx.Plugin):
                 "baseq3", self.get_cvar("sv_mappoolfile"))
             if os.path.isfile(mpbase):
                 self.mappool = self.parse_mappool(mpbase)
+
+    @minqlx.delay(3)
+    def unload_essentials(self):
+        try:
+            minqlx.unload_plugin('essentials')
+        except Exception as e:
+            pass
 
     def handle_player_connect(self, player):
         self.update_player(player)
@@ -817,78 +835,3 @@ class myessentials(minqlx.Plugin):
         player.tell(out.rstrip("\n"))
 
 
-    def cmd_version(self, player, msg, channel):
-        self.check_version(channel=channel)
-
-    @minqlx.thread
-    def check_version(self, player=None, channel=None):
-        url = "https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/{}.py".format(self.__class__.__name__)
-        res = requests.get(url)
-        last_status = res.status_code
-        if res.status_code != requests.codes.ok: return
-        for line in res.iter_lines():
-            if line.startswith(b'VERSION'):
-                line = line.replace(b'VERSION = ', b'')
-                line = line.replace(b'"', b'')
-                # If called manually and outdated
-                if channel and VERSION.encode() != line:
-                    channel.reply("^7Currently using ^3iou^7one^4girl^7's ^6{}^7 plugin ^1outdated^7 version ^6{}^7.".format(self.__class__.__name__, VERSION))
-                # If called manually and alright
-                elif channel and VERSION.encode() == line:
-                    channel.reply("^7Currently using ^3iou^7one^4girl^7's latest ^6{}^7 plugin version ^6{}^7.".format(self.__class__.__name__, VERSION))
-                # If routine check and it's not alright.
-                elif player and VERSION.encode() != line:
-                    time.sleep(15)
-                    try:
-                        player.tell("^3Plugin update alert^7:^6 {}^7's latest version is ^6{}^7 and you're using ^6{}^7!".format(self.__class__.__name__, line.decode(), VERSION))
-                    except Exception as e: minqlx.console_command("echo {}".format(e))
-                return
-
-
-    def find_by_name_or_id(self, player, target):
-        # Find players returns a list of name-matching players
-        def find_players(query):
-            players = []
-            for p in self.find_player(query):
-                if p not in players:
-                    players.append(p)
-            return players
-
-        # Tell a player which players matched
-        def list_alternatives(players, indent=2):
-            player.tell("A total of ^6{}^7 players matched for {}:".format(len(players),target))
-            out = ""
-            for p in players:
-                out += " " * indent
-                out += "{}^6:^7 {}\n".format(p.id, p.name)
-            player.tell(out[:-1])
-
-        # Get the list of matching players on name
-        target_players = find_players(target)
-
-        # even if we get only 1 person, we need to check if the input was meant as an ID
-        # if we also get an ID we should return with ambiguity
-
-        try:
-            i = int(target)
-            target_player = self.player(i)
-            if not (0 <= i < 64) or not target_player:
-                raise ValueError
-            # Add the found ID if the player was not already found
-            if not target_player in target_players:
-                target_players.append(target_player)
-        except ValueError:
-            pass
-
-        # If there were absolutely no matches
-        if not target_players:
-            player.tell("Sorry, but no players matched your tokens: {}.".format(target))
-            return None
-
-        # If there were more than 1 matches
-        if len(target_players) > 1:
-            list_alternatives(target_players)
-            return None
-
-        # By now there can only be one person left
-        return target_players.pop()
