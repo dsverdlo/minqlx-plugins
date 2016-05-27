@@ -52,7 +52,7 @@ except:
         minqlx.CHAT_CHANNEL.reply("^1iouonegirl abstract plugin download failed^7: {}".format(e))
         raise
 
-VERSION = "v0.10"
+VERSION = "v0.11"
 
 class myessentials(iouonegirlPlugin):
     database = minqlx.database.Redis
@@ -147,9 +147,6 @@ class myessentials(iouonegirlPlugin):
 
     def handle_player_connect(self, player):
         self.update_player(player)
-        # If admin, check version number
-        if self.db.has_permission(player, 5):
-            self.check_version(player=player)
 
 
     def handle_player_disconnect(self, player, reason):
