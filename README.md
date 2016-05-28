@@ -1,4 +1,4 @@
-# minqlx-plugins
+# minqlx-plugins by iouonegirl
 
 This repo will contain several plugins which I have developed for [Mino's minqlx](https://github.com/MinoMino/minqlx "MinoMino/minqlx").
 
