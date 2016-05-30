@@ -17,7 +17,7 @@ import time
 import os
 import requests
 
-VERSION = "v0.11"
+VERSION = "v0.12"
 
 # This code makes sure the required superclass is loaded automatically
 try:
@@ -89,7 +89,7 @@ class disable_votes(iouonegirlPlugin):
                 disabled_votes.append(v)
 
         if vote in disabled_votes:
-            self.msg('^1You are not allowed to callvote {} during a match!'.format(vote))
+            player.tell('^1You are not allowed to callvote {} during a match!'.format(vote))
             return minqlx.RET_STOP_ALL
 
 
