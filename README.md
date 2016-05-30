@@ -1,4 +1,4 @@
-# minqlx-plugins
+# minqlx-plugins by iouonegirl
 
 This repo will contain several plugins which I have developed for [Mino's minqlx](https://github.com/MinoMino/minqlx "MinoMino/minqlx").
 
@@ -55,9 +55,6 @@ I can usually be found on IRC (http://webchat.quakenet.org/?channels=minqlbot).
 
 # **auto_voice_switch**
 - This plugin is evaluated to be useless, since "g_allTalk 0" will automatically limit voice communication to team-only during a match. 
-- CVARS
-- COMMANDS
-- NOTES
 
 # **autospec**
 - Displays a message during round countdown if teams are uneven, and forces the person (of the largest team) with the lowest score to spectate. If there is a big difference between teams, players will be autom. moved over.
@@ -74,13 +71,18 @@ I can usually be found on IRC (http://webchat.quakenet.org/?channels=minqlbot).
   - !print \<message\> - print a message to a person's screen
   - !broadcast \<message\> - print a message on everybody's screen
 - NOTES
-  - Only works for round-based game modes
+  - The showlast message only works for round-based game modes, ofc
 
 # **disable_votes**
 - This plugin will disable the ability to callvote certain things during a match
 - CVARS
-  - qlx_disabled_votes_midgame "map, teamsize"
-  - qlx_disabled_votes_permission "1"
+  - set qlx_disabled_votes_midgame "map"
+  - set qlx_disabled_specvotes_midgame "teamsize, kick, clientkick"
+  - set qlx_disabled_votes_permission "1"
+- COMMANDS
+  - !disabled - shows which votes will be disabled
+- NOTES
+  - For spectators, the combination of the two lists will be their restriction (unless they have permission, of course)
 
 # **gauntonly**
 - This plugin will activate a special mode when one player in a team-based gametype is left last standing against a large number of opponents. The minimum amount of opponnents needed can be specified via MAX and the special mode will turn itself off when a minimum is reached. With the default variables, a 1v5 will activate it, and if it becomes 1v2 the mode will turn off
@@ -108,7 +110,7 @@ I can usually be found on IRC (http://webchat.quakenet.org/?channels=minqlbot).
 Furthermore this plugin uses a text file in which exceptions can be placed for the elo restrictions, and adds a little bump to the elo restriction for regular players. Players falling outside the provided skill rating interval can be blocked on their connection screen, be kicked after a while on the server, or can be allowed to just spectate. Furthermore warmup reminders can be scheduled to repeat at certain intervals to remind players to ready up (if warmup takes too long). In CTF and TDM matches (no rounds), a player will be frozen in place until the teams are even again. Otherwise he is sent back to spectator. 
 - CVARS
   - qlx_elo_limit_min "0"
-  - qlx_elo_limit_max "1600"
+  - qlx_elo_limit_max "1600" (set to 9999 or something to have no real upper limit)
   - qlx_elo_games_needed "10"
   - qlx_mybalance_perm_allowed "2" (players with this perm-level will always be allowed)
   - qlx_mybalance_autoshuffle "0" (set "1" if you want an automatic shuffle before every match)
