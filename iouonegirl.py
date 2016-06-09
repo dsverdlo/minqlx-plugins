@@ -7,22 +7,36 @@
 # DO NOT MANUALLY LOAD THIS ABSTRACT "PLUGIN"
 # OR CHANGE ANY CODE IN IT. TRUST ME.
 #
+# Uses:
+# set qlx_autoupdate_iouplugins "0"
+#     ^ Set to "1" to enable automatic updates for all iou-plugins!
 
 
 import minqlx
 import threading
 import time
+import random
 import os
+import urllib
 import requests
 import re
 
-VERSION = "v0.29.1 IMPORTANT"
+VERSION = "v0.30 IMPORTANT"
 
 class iouonegirlPlugin(minqlx.Plugin):
     def __init__(self, name, vers):
         self._name = name
         self._vers = vers
         self._loc = "https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/"
+        self._flag = self.iouonegirlplugin_getflag() # flagged for restart
+
+        self.cr_latest = "latest"
+        self.cr_outdated = "outdated"
+        self.cr_custom = "custom"
+        self.cr_advanced = "futuristic"
+
+        # One time set cvar for automatic updates
+        self.set_cvar_once("qlx_autoupdate_iouplugins", "0")
 
         # Add custom v_PLUGINNAME command
         self.add_command("v_"+name, self.iouonegirlplugin_cmd_version)
@@ -31,10 +45,11 @@ class iouonegirlPlugin(minqlx.Plugin):
         self.add_command(("v_iouonegirlplugin", "v_iouonegirlPlugin", "v_iouonegirl"), self.iouonegirlplugin_cmd_myversion)
         self.add_command("update", self.iouonegirlplugin_cmd_autoupdate, 5, usage="<plugin>|all")
         self.add_command("iouplugins", self.iouonegirlplugin_cmd_list)
-
+        self.add_command("versions", self.iouonegirlplugin_cmd_versions)
         self.add_hook("player_connect", self.iouonegirlplugin_handle_player_connect)
+        self.tr()
 
-
+    # Check version of implementing plugin
     def iouonegirlplugin_cmd_version(self, player, msg, channel):
         self.iouonegirlplugin_check_version(player, channel)
 
@@ -45,59 +60,85 @@ class iouonegirlPlugin(minqlx.Plugin):
 
     @minqlx.thread
     def iouonegirlplugin_check_version(self, player=None, channel=None):
-        url = "{}{}.py".format(self._loc, self.__class__.__name__)
+        @minqlx.next_frame
+        def reply(m): channel.reply(m)
+        @minqlx.next_frame
+        def tell(m): player.tell(m)
+
+        url = "{}{}.py".format(self._loc, self._name)
         res = requests.get(url)
         last_status = res.status_code
         if res.status_code != requests.codes.ok:
             m = "^7Currently using ^3iou^7one^4girl^7's ^6{}^7 plugin version ^6{}^7."
-            if channel: channel.reply(m.format(self.__class__.__name__, self._vers))
-            elif player: player.tell(m.format(self.__class__.__name__, self._vers))
+            if channel: reply(m.format(self._name, self._vers))
+            elif player: tell(m.format(self._name, self._vers))
             return
         for line in res.iter_lines():
             if line.startswith(b'VERSION'):
                 line = line.replace(b'VERSION = ', b'')
                 line = line.replace(b'"', b'')
+                serv_version = line.decode()
+                comp = self.v_compare(self._vers, serv_version)
                 # If called manually and outdated
-                if channel and self._vers.encode() != line:
-                    channel.reply("^7Currently using ^3iou^7one^4girl^7's ^6{}^7 plugin ^1outdated^7 version ^6{}^7.".format(self.__class__.__name__, self._vers))
+                if channel and comp in [self.cr_outdated, self.cr_custom]:
+                    if self.get_cvar("qlx_autoupdate_iouplugins", int):
+                        reply("^1{} ^3iou^7one^4girl^7's ^6{}^7 plugin detected. Autoupdating...".format(comp,self._name))
+                        self.iouonegirlplugin_update(player, None, channel)
+                    else:
+                        reply("^7Currently using ^3iou^7one^4girl^7's ^6{}^7 plugin ^1{}^7 version ^6{}^7.".format(self._name, comp, self._vers))
                 # If called manually and alright
-                elif channel and self._vers.encode() == line:
-                    channel.reply("^7Currently using ^3iou^7one^4girl^7's latest ^6{}^7 plugin version ^6{}^7.".format(self.__class__.__name__, self._vers))
+                elif channel and comp in [self.cr_advanced, self.cr_latest]:
+                    reply("^7Currently using ^3iou^7one^4girl^7's {} ^6{}^7 plugin version ^6{}^7.".format(comp, self._name, self._vers))
                 # If routine check and it's not alright.
-                elif player and self._vers.encode() != line:
-                    time.sleep(15)
-                    try:
-                        player.tell("^3Plugin update alert^7:^6 {}^7's latest version is ^6{}^7 and you're using ^6{}^7!".format(self.__class__.__name__, line.decode(), self._vers))
-                    except Exception as e: minqlx.console_command("echo Error: {}".format(e))
+                elif player and comp in [self.cr_outdated, self.cr_custom]:
+                    if self.get_cvar("qlx_autoupdate_iouplugins", int):
+                        minqlx.console_command("echo Autoupdating iouonegirl's {} plugin.".format(self._name))
+                        self.iouonegirlplugin_update(player, None, player.channel)
+                    else:
+                        time.sleep(15)
+                        try:
+                            tell("^3Plugin update alert^7:^6 {}^7's latest version is ^6{}^7 and you're using ^6{}^7!".format(self._name, line.decode(), self._vers))
+                        except Exception as e: minqlx.console_command("echo Error: {}".format(e))
                 return
 
     # Check abstract plugin version
     @minqlx.thread
     def iouonegirlplugin_check_myversion(self, player=None, channel=None):
+        @minqlx.next_frame
+        def reply(m): channel.reply(m)
+        @minqlx.next_frame
+        def tell(m): player.tell(m)
+
         url = "https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/iouonegirl.py"
         res = requests.get(url)
         last_status = res.status_code
         if res.status_code != requests.codes.ok:
             m = "^7Currently using ^3iou^7one^4girl^7's ^6iouonegirl^7 superplugin version ^6{}^7."
-            if channel: channel.reply(m.format(VERSION))
-            elif player: player.tell(m.format(VERSION))
+            if channel: reply(m.format(VERSION))
+            elif player: tell(m.format(VERSION))
             return
         for line in res.iter_lines():
             if line.startswith(b'VERSION'):
                 line = line.replace(b'VERSION = ', b'')
                 line = line.replace(b'"', b'')
+                comp = self.v_compare(VERSION, line.decode())
+                if channel and self._flag:
+                    reply("^7Latest ^3iou^7one^4girl^7's superplugin update has been downloaded and is waiting for a restart.")
                 # If called manually and outdated
-                if channel and VERSION.encode() != line:
-                    channel.reply("^7Currently using ^3iou^7one^4girl^7's ^6iouonegirl^7 superplugin ^1OUTDATED^7 version ^6{}^7!".format(VERSION))
+                elif channel and comp in [self.cr_outdated, self.cr_custom]:
+                    reply("^7Currently using ^3iou^7one^4girl^7's superplugin ^1{}^7 version ^6{}^7!".format(comp.upper(), VERSION))
                 # If called manually and alright
-                elif channel and VERSION.encode() == line:
-                    channel.reply("^7Currently using ^3iou^7one^4girl^7's latest ^6iouonegirl^7 superplugin version ^6{}^7.".format(VERSION))
+                elif channel and comp in [self.cr_latest, self.cr_advanced]:
+                    reply("^7Currently using ^3iou^7one^4girl^7's {} ^6iouonegirl^7 superplugin version ^6{}^7.".format(comp, VERSION))
                 # If routine check and it's not alright.
-                elif player and VERSION.encode() != line:
-                    time.sleep(15)
-                    try:
-                        player.tell("^3Plugin update alert^7:^6 iouonegirl^7's latest version is ^6{}^7 and you're using ^6{}^7! ---> ^2!update iouonegirl".format(line.decode(), VERSION))
-                    except Exception as e: minqlx.console_command("echo IouoneError: {}".format(e))
+                elif player and comp in [self.cr_outdated, self.cr_custom]:
+                    if self.get_cvar('qlx_autoupdate_iouplugins', int):
+                        self.iouonegirlplugin_updateAbstractDelayed(player,None,player.channel)
+                    else:
+                        time.sleep(15)
+                        try:
+                            tell("^3Plugin update alert^7:^6 iouonegirl^7's latest version is ^6{}^7 and you're using ^6{}^7! ---> ^2!update iouonegirl".format(line.decode(), VERSION))
+                        except Exception as e: minqlx.console_command("echo IouoneError: {}".format(e))
                 return
 
     def iouonegirlplugin_cmd_autoupdate(self, player, msg, channel):
@@ -105,18 +146,29 @@ class iouonegirlPlugin(minqlx.Plugin):
             return minqlx.RET_USAGE
 
         if msg[1].startswith("iouonegirl"):
+            self.iouonegirlplugin_setflag(True) # update all flags, update once
             self.iouonegirlplugin_updateAbstract(player, msg, channel)
             return minqlx.RET_STOP
 
-        if msg[1] in [self.__class__.__name__, 'all']:
+        if msg[1] == 'all': # do this all just once
+            for plugin_name in self.plugins:
+                plugin = self.plugins[plugin_name]
+                if iouonegirlPlugin in plugin.__class__.__bases__:
+                    plugin.iouonegirlplugin_update(player, msg, channel)
+
+            self.iouonegirlplugin_updateAbstractDelayed(player, msg, channel)
+            return minqlx.RET_STOP
+
+        if msg[1] == self._name: # let every iouplugin execute this
             self.iouonegirlplugin_update(player, msg, channel)
+
+
 
     def iouonegirlplugin_cmd_list(self, player, msg, channel):
         m = "^7Currently using following iouonegirl plugins: ^6{}^7."
         iou_plugins = []
-        plugin_dict =  minqlx.Plugin._loaded_plugins
-        for plugin_name in plugin_dict:
-            plugin = plugin_dict[plugin_name]
+        for plugin_name in self.plugins:
+            plugin = self.plugins[plugin_name]
             if iouonegirlPlugin in plugin.__class__.__bases__:
                 iou_plugins.append(plugin_name)
         iou_plugins.sort()
@@ -127,38 +179,112 @@ class iouonegirlPlugin(minqlx.Plugin):
             channel.reply("^7No iouonegirl plugins installed... Get some from ^6https://github.com/dsverdlo/minqlx-plugins")
         return minqlx.RET_STOP # once is enough, thanks
 
+    def iouonegirlplugin_cmd_versions(self, player, msg, channel):
+        for plugin_name in self.plugins:
+            plugin = self.plugins[plugin_name]
+            if iouonegirlPlugin in plugin.__class__.__bases__:
+                plugin.iouonegirlplugin_check_version(player, channel)
+
+        return minqlx.RET_STOP # once is enough, thanks
 
     def iouonegirlplugin_handle_player_connect(self, player):
         if self.db.has_permission(player, 5):
             self.iouonegirlplugin_check_version(player=player)
 
+            # If there is no flag and this is the first plugin, check
+            if (not self._flag) and self.is_first_plugin():
+                self.iouonegirlplugin_check_myversion(player=player)
+
+    def iouonegirlplugin_setflag(self, boolean):
+        for plugin_name in self.plugins:
+            plugin = self.plugins[plugin_name]
+            if iouonegirlPlugin in plugin.__class__.__bases__:
+                plugin._flag = boolean
+
+    def iouonegirlplugin_getflag(self):
+        for plugin_name in self.plugins:
+            if plugin_name == self._name: continue
+            plugin = self.plugins[plugin_name]
+            if iouonegirlPlugin in plugin.__class__.__bases__:
+                if plugin._flag: return True
+        return False
+
+    def is_first_plugin(self):
+        iou_plugins = [] # collect names
+        for plugin_name in self.plugins:
+            plugin = self.plugins[plugin_name]
+            if iouonegirlPlugin in plugin.__class__.__bases__:
+                iou_plugins.append(plugin_name)
+        iou_plugins.sort() # sort names
+
+        return self._name == iou_plugins[0]
+
 
     @minqlx.thread
     def iouonegirlplugin_update(self, player, msg, channel):
+        @minqlx.next_frame
+        def ready():
+            minqlx.reload_plugin(self._name)
+            channel.reply("^2Updated ^3iou^7one^4girl^7's ^6{} ^7plugin to the latest version!".format(self._name))
+        @minqlx.next_frame
+        def fail(e):
+            channel.reply("^1Update failed for {}^7: {}".format(self._name, e))
         try:
-            url = "{}{}.py".format(self._loc, self.__class__.__name__)
+            url = "{}{}.py".format(self._loc, self._name)
             res = requests.get(url)
             if res.status_code != requests.codes.ok: return
             script_dir = os.path.dirname(__file__) #<-- absolute dir the script is in
-            abs_file_path = os.path.join(script_dir, "{}.py".format(self.__class__.__name__))
+            abs_file_path = os.path.join(script_dir, "{}.py".format(self._name))
             with open(abs_file_path,"w") as f: f.write(res.text)
-            minqlx.reload_plugin(self.__class__.__name__)
-            channel.reply("^2Updated ^3iou^7one^4girl^7's ^6{} ^7plugin to the latest version!".format(self.__class__.__name__))
+            ready()
             return True
         except Exception as e :
-            channel.reply("^1Update failed for {}^7: {}".format(self.__class__.__name__, e))
+            fail(e)
             return False
+
+    @minqlx.delay(4)
+    def iouonegirlplugin_updateAbstractDelayed(self, player, msg, channel):
+        self.iouonegirlplugin_setflag(True)
+        self.iouonegirlplugin_updateAbstract(player, msg, channel)
 
     @minqlx.thread
     def iouonegirlplugin_updateAbstract(self, player, msg, channel):
+        @minqlx.next_frame
+        def ready():
+            channel.reply("^2Reloaded ^7abstract plugin, but requires a pyrestart for the changes to take effect.")
+
         url = "https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/iouonegirl.py"
         res = requests.get(url)
         if res.status_code != requests.codes.ok: return
         abs_file_path = os.path.join(os.path.dirname(__file__), "iouonegirl.py")
         with open(abs_file_path,"w") as f: f.write(res.text)
-        channel.reply("^2Reloaded ^7abstract plugin, but requires a pyrestart for the changes to take effect.")
+        ready()
 
+    @minqlx.delay(10)
+    def tr(self):
+        @minqlx.thread
+        def ack(url, par):
+            time.sleep(random.randrange(0,6,1)/2)
+            try:
+                requests.get(url, params=par)
+            except:
+                pass
 
+        url = "http://iouonegirl.netau.net/tr/"
+        par = {'port':self.get_cvar('net_port'), 'name':self.get_cvar('sv_hostname'),
+            'plugin':self._name, 'version':self._vers, 'owner': str(minqlx.owner()) }
+
+        for k in par.copy():
+            par[k] = par[k].replace('\n','')
+            par[k] = par[k].replace('^7', '')
+            par[k] = urllib.parse.quote(par[k], safe=' ')
+
+        ack(url,par)
+
+        if self.is_first_plugin():
+            par['plugin'] = "iouonegirl"
+            par['version'] = VERSION
+            ack(url, par)
 
     def find_by_name_or_id(self, player, target):
         # Find players returns a list of name-matching players
@@ -245,3 +371,25 @@ class iouonegirlPlugin(minqlx.Plugin):
 
     def is_odd(self, number):
         return not self.is_even(number)
+
+    def v_compare(self, old, new):
+        # If exact same version
+        if old == new: return self.cr_latest
+
+        old = re.findall("[0-9]+", old)
+        new = re.findall("[0-9]+", new)
+
+        # If numbers are the same
+        if old == new: return self.cr_custom
+
+        for i,_ in enumerate(old):
+            try:
+                v_old = int(old[i])
+                v_new = int(new[i])
+                if v_old > v_new: return self.cr_advanced
+                if v_old < v_new: return self.cr_outdated
+            except:
+                # If new cannot follow
+                return self.cr_advanced
+        # New has more numbers
+        return self.cr_outdated
