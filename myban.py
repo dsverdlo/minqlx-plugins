@@ -46,7 +46,7 @@ except:
         minqlx.CHAT_CHANNEL.reply("^1iouonegirl abstract plugin download failed^7: {}".format(e))
         raise
 
-VERSION = "v0.15"
+VERSION = "v0.16"
 
 class myban(iouonegirlPlugin):
     def __init__(self):
@@ -85,11 +85,6 @@ class myban(iouonegirlPlugin):
 
 
     def handle_player_connect(self, player):
-
-        # If admin, check version number
-        if self.db.has_permission(player, 5):
-            self.check_version(player=player)
-
         status = self.leave_status(player.steam_id)
         # Check if a player has been banned for leaving, if we're doing that.
         if status and status[0] == "ban":
