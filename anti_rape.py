@@ -21,12 +21,13 @@
 
 import minqlx
 import time
+import os
 import datetime
 import threading
 import requests
 from math import floor
 
-VERSION = "v0.48"
+VERSION = "v0.51"
 
 
 # From which percentage we classify a rape.
@@ -65,9 +66,24 @@ _name_key = "minqlx:players:{}:colored_name"
 HC_TAG = "new"
 SHC_TAG = "new:"
 
-class anti_rape(minqlx.Plugin):
+# This code makes sure the required superclass is loaded automatically
+try:
+    from .iouonegirl import iouonegirlPlugin
+except:
+    try:
+        abs_file_path = os.path.join(os.path.dirname(__file__), "iouonegirl.py")
+        res = requests.get("https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/iouonegirl.py")
+        if res.status_code != requests.codes.ok: raise
+        with open(abs_file_path,"a+") as f: f.write(res.text)
+        from .iouonegirl import iouonegirlPlugin
+    except Exception as e :
+        minqlx.CHAT_CHANNEL.reply("^1iouonegirl abstract plugin download failed^7: {}".format(e))
+        raise
+
+
+class anti_rape(iouonegirlPlugin):
     def __init__(self):
-        super().__init__()
+        super().__init__(self.__class__.__name__, VERSION)
 
         # Some dictionaries (self explanatory) keys: steam_id, values: value
         self.handicaps = {}
@@ -101,9 +117,7 @@ class anti_rape(minqlx.Plugin):
         self.add_command(("raper", "setraper", "mark"), self.cmd_set_raper, 2, usage="<id>|<name>")
         self.add_command("unmark", self.cmd_unsert_raper, 2, usage="<id>|<name>")
         self.add_command(("hc_cmds", "hccmds"), self.cmd_hc_commands)
-        self.add_command(("v_anti_rape", "version_anti_rape"), self.cmd_version)
         self.add_hook("game_countdown",self.handle_game_countdown)
-        self.add_hook("player_connect", self.handle_player_connect)
         self.add_hook("player_loaded", self.handle_player_loaded)
         self.add_hook("team_switch", self.handle_team_switch)
         self.add_hook("round_start", self.handle_round_start)
@@ -111,33 +125,6 @@ class anti_rape(minqlx.Plugin):
         self.add_hook("userinfo", self.handle_user_info)
         self.add_hook("death", self.handle_death)
 
-
-    def cmd_version(self, player, msg, channel):
-        self.check_version(channel=channel)
-
-    @minqlx.thread
-    def check_version(self, player=None, channel=None):
-        url = "https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/{}.py".format(self.__class__.__name__)
-        res = requests.get(url)
-        last_status = res.status_code
-        if res.status_code != requests.codes.ok: return
-        for line in res.iter_lines():
-            if line.startswith(b'VERSION'):
-                line = line.replace(b'VERSION = ', b'')
-                line = line.replace(b'"', b'')
-                # If called manually and outdated
-                if channel and VERSION.encode() != line:
-                    channel.reply("^7Currently using ^3iou^7one^4girl^7's ^6{}^7 plugin ^1outdated^7 version ^6{}^7.".format(self.__class__.__name__, VERSION))
-                # If called manually and alright
-                elif channel and VERSION.encode() == line:
-                    channel.reply("^7Currently using ^3iou^7one^4girl^7's latest ^6{}^7 plugin version ^6{}^7.".format(self.__class__.__name__, VERSION))
-                # If routine check and it's not alright.
-                elif player and VERSION.encode() != line:
-                    time.sleep(15)
-                    try:
-                        player.tell("^3Plugin update alert^7:^6 {}^7's latest version is ^6{}^7 and you're using ^6{}^7!".format(self.__class__.__name__, line.decode(), VERSION))
-                    except Exception as e: minqlx.console_command("echo {}".format(e))
-                return
 
     def handle_game_countdown(self):
         # Remove all the handicaps
@@ -197,12 +184,9 @@ class anti_rape(minqlx.Plugin):
             if player.steam_id in self.realdamage:
                 del self.realdamage[player.steam_id]
 
-    def handle_player_connect(self, player):
-        if self.db.has_permission(player, 5):
-            self.check_version(player=player)
 
     # just a little longer delay than the myban plugin
-    @minqlx.delay(5)
+    @minqlx.delay(6)
     def handle_player_loaded(self, player):
 
         try:
@@ -250,7 +234,7 @@ class anti_rape(minqlx.Plugin):
         self.round_countdown = False
 
     # On round end check if we need to check for rapist warnings
-    @minqlx.delay(1)
+    @minqlx.delay(6.5)
     def handle_round_end(self, data):
         def calc_time_delta(time1, time2):
             return abs(time1 - time2)
@@ -308,13 +292,13 @@ class anti_rape(minqlx.Plugin):
 
                 # Calculate / update the 'real' scores
                 self.realdamage[sid] = self.realdamage.get(sid, 0) + actual_diff
-                self.realscores[sid] = int(self.realdamage[sid] + frags)
+                self.realscores[sid] = int(self.realdamage[sid] + frags/2)
 
                 # while we're here, update snapshots for next round
                 self.scores_snapshot[sid] = [_p.team, curr_dmg]
 
-                dbg = "echo DBG: {}({}％) pdmg: {} cdmg: {} diff: {} tot.kills: {} scr: {} rscr: {}"
-                minqlx.console_command(dbg.format(_p.name, hc, prev_dmg, curr_dmg, diff, frags, score, self.realscores[sid]))
+                #dbg = "echo DBG: {}({}％) pdmg: {} cdmg: {} diff: {} tot.kills: {} scr: {} rscr: {}"
+                #minqlx.console_command(dbg.format(_p.name, hc, prev_dmg, curr_dmg, diff, frags, score, self.realscores[sid]))
 
         # If this was the last round, nothing to do
         if self.game.roundlimit in [self.game.blue_score, self.game.red_score]:
@@ -352,7 +336,7 @@ class anti_rape(minqlx.Plugin):
 
             # If we have a rapist, mark him for the game
             rapist = is_rapist(gap, p.steam_id)
-            if rapist: mark_rapist(p)
+            #if rapist: mark_rapist(p)
 
             # If player is not in losing team
             if p.steam_id in map(lambda _p: _p.steam_id, check):
@@ -360,6 +344,7 @@ class anti_rape(minqlx.Plugin):
                 if rapist and (gap >= RAPE_MIDER_GAP):
                     hc = self.help_get_hc_suggestion(gap)
                     if hc: self.set_silent_handicap(p, hc)
+                    if hc: p.center_print("HC {}％".format(hc))
                     if hc: self.delay(["","^6{}^7 score index: ^1{}^7％ above average - Handicap set to: ^3{}^7％".format(p.name, gap, hc)], 0.3)
                     continue
 
@@ -616,56 +601,6 @@ class anti_rape(minqlx.Plugin):
             self.set_silent_handicap(_p, 100)
             del self.handicaps[_p.steam_id]
 
-    def find_by_name_or_id(self, player, target):
-        # Find players returns a list of name-matching players
-        def find_players(query):
-            players = []
-            for p in self.find_player(query):
-                if p not in players:
-                    players.append(p)
-            return players
-
-        # Tell a player which players matched
-        def list_alternatives(players, indent=2):
-            player.tell("A total of ^6{}^7 players matched for {}:".format(len(players),target))
-            out = ""
-            for p in players:
-                out += " " * indent
-                out += "{}^6:^7 {}\n".format(p.id, p.name)
-            player.tell(out[:-1])
-
-        # Get the list of matching players on name
-        target_players = find_players(target)
-
-        # even if we get only 1 person, we need to check if the input was meant as an ID
-        # if we also get an ID we should return with ambiguity
-
-        try:
-            ident = int(target)
-            target_player = None
-            if ident >= 0 and ident < 64:
-                target_player = self.player(ident)
-                ident = target_player.steam_id
-
-            # Add the found ID if the player was not already found
-            if target_player and not (target_player in target_players):
-                target_players.append(target_player)
-        except:
-            pass
-
-        # If there were absolutely no matches
-        if not target_players:
-            player.tell("Sorry, but no players matched your tokens: {}.".format(target))
-            return None
-
-        # If there were more than 1 matches
-        if len(target_players) > 1:
-            list_alternatives(target_players)
-            return None
-
-        # By now there can only be one person left
-        return target_players.pop()
-
 
     def set_handicap(self, player, hc):
         self.handicaps[player.steam_id] = HC_TAG+str(hc)
@@ -717,3 +652,4 @@ class anti_rape(minqlx.Plugin):
         for _p in self.players():
             self.set_silent_handicap(_p, 100)
             del self.handicaps[_p.steam_id]
+
