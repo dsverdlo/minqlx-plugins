@@ -18,17 +18,42 @@
 #
 # 3. Once you have it installed, try a word definition.
 # A one-time (10mb) file will be downloaded to the server.
+#
+# To use the translation functions, please make a free account
+# on yandex.net and get an API key, which you'll set as a cvar.
+#
+# Uses
+# - qlx_translate_api_key "apikey1337thisisnotanactualapikey69"
 
 import minqlx
+import os
+import time
+import re
+import random
 import threading
 import requests
 
-VERSION = "v0.11"
+VERSION = "v0.12"
 
 try:
     import textblob
 except:
     pass
+
+
+# This code makes sure the required superclass is loaded automatically
+try:
+    from .iouonegirl import iouonegirlPlugin
+except:
+    try:
+        abs_file_path = os.path.join(os.path.dirname(__file__), "iouonegirl.py")
+        res = requests.get("https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/iouonegirl.py")
+        if res.status_code != requests.codes.ok: raise
+        with open(abs_file_path,"a+") as f: f.write(res.text)
+        from .iouonegirl import iouonegirlPlugin
+    except Exception as e :
+        minqlx.CHAT_CHANNEL.reply("^1iouonegirl abstract plugin download failed^7: {}".format(e))
+        raise
 
 # customizable vars
 C = "^4"
@@ -41,109 +66,76 @@ LANG_KEY = PLAYER_KEY + ":language"
 AUTO_KEY = PLAYER_KEY + ":autotranslate"
 
 LANGS = {
-'Afrikaans': 'af',
 'Albanian': 'sq',
-'Arabic': 'ar',
-'Armenian': 'hy',
-'Azerbaijani': 'az',
-'Basque': 'eu',
-'Belarusian': 'be',
-'Bengali': 'bn',
-'Bosnian': 'bs',
-'Bulgarian': 'bg',
-'Catalan': 'ca',
-'Cebuano': 'ceb',
-'Chichewa': 'ny',
-'Chinese Simplified': 'zh-CN',
-'Chinese Traditional': 'zh-TW',
-'Croatian': 'hr',
-'Czech': 'cs',
-'Danish': 'da',
-'Dutch': 'nl',
-'English': 'en',
-'Esperanto': 'eo',
-'Estonian': 'et',
-'Filipino': 'tl',
-'Finnish': 'fi',
-'French': 'fr',
-'Galician': 'gl',
-'Georgian': 'ka',
-'German': 'de',
-'Greek': 'el',
-'Gujarati': 'gu',
-'Haitian Creole': 'ht',
-'Hausa': 'ha',
-'Hebrew': 'iw',
-'Hindi': 'hi',
-'Hmong': 'hmn',
-'Hungarian': 'hu',
-'Icelandic': 'is',
-'Igbo': 'ig',
-'Indonesian': 'id',
-'Irish': 'ga',
-'Italian': 'it',
-'Japanese': 'ja',
-'Javanese': 'jw',
-'Kannada': 'kn',
-'Kazakh': 'kk',
-'Khmer': 'km',
-'Korean': 'ko',
-'Lao': 'lo',
-'Latin': 'la',
-'Latvian': 'lv',
-'Lithuanian': 'lt',
-'Macedonian': 'mk',
-'Malagasy': 'mg',
-'Malay': 'ms',
-'Malayalam': 'ml',
-'Maltese': 'mt',
-'Maori': 'mi',
-'Marathi': 'mr',
-'Mongolian': 'mn',
-'Myanmar (Burmese)': 'my',
-'Nepali': 'ne',
-'Norwegian': 'no',
-'Persian': 'fa',
-'Polish': 'pl',
-'Portuguese': 'pt',
-'Punjabi': 'ma',
-'Romanian': 'ro',
-'Russian': 'ru',
-'Serbian': 'sr',
-'Sesotho': 'st',
-'Sinhala': 'si',
-'Slovak': 'sk',
-'Slovenian': 'sl',
-'Somali': 'so',
-'Spanish': 'es',
-'Sudanese': 'su',
-'Swahili': 'sw',
-'Swedish': 'sv',
-'Tajik': 'tg',
-'Tamil': 'ta',
-'Telugu': 'te',
-'Thai': 'th',
-'Turkish': 'tr',
-'Ukrainian': 'uk',
-'Urdu': 'ur',
-'Uzbek': 'uz',
-'Vietnamese': 'vi',
-'Welsh': 'cy',
-'Yiddish': 'yi',
-'Yoruba': 'yo',
-'Zulu': 'zu',}
+ 'Armenian': 'hy',
+ 'Azerbaijani': 'az',
+ 'Belarusian': 'be',
+ 'Bulgarian': 'bg',
+ 'Catalan': 'ca',
+ 'Croatian': 'hr',
+ 'Czech': 'cs',
+ 'Danish': 'da',
+ 'Dutch': 'nl',
+ 'English': 'en',
+ 'Estonian': 'et',
+ 'Finnish': 'fi',
+ 'French': 'fr',
+ 'German': 'de',
+ 'Greek': 'el',
+ 'Hungarian': 'hu',
+ 'Italian': 'it',
+ 'Latvian': 'lv',
+ 'Lithuanian': 'lt',
+ 'Macedonian': 'mk',
+ 'Norwegian': 'no',
+ 'Polish': 'pl',
+ 'Portuguese': 'pt',
+ 'Romanian': 'ro',
+ 'Russian': 'ru',
+ 'Serbian': 'sr',
+ 'Slovak': 'sk',
+ 'Slovenian': 'sl',
+ 'Spanish': 'es',
+ 'Swedish': 'sv',
+ 'Turkish': 'tr',
+ 'Ukrainian': 'uk'}
+
+yandex = [
+    "az-ru","be-bg","be-cs","be-de","be-en","be-es","be-fr","be-it","be-pl",
+    "be-ro","be-ru","be-sr","be-tr","bg-be","bg-ru","bg-uk","ca-en","ca-ru",
+    "cs-be","cs-en","cs-ru","cs-uk","da-en","da-ru","de-be","de-en","de-es",
+    "de-fr","de-it","de-ru","de-tr","de-uk","el-en","el-ru","en-be","en-ca",
+    "en-cs","en-da","en-de","en-el","en-es","en-et","en-fi","en-fr","en-hu",
+    "en-it","en-lt","en-lv","en-mk","en-nl","en-no","en-pt","en-ru","en-sk",
+    "en-sl","en-sq","en-sv","en-tr","en-uk","es-be","es-de","es-en","es-ru",
+    "es-uk","et-en","et-ru","fi-en","fi-ru","fr-be","fr-de","fr-en","fr-ru",
+    "fr-uk","hr-ru","hu-en","hu-ru","hy-ru","it-be","it-de","it-en","it-ru",
+    "it-uk","lt-en","lt-ru","lv-en","lv-ru","mk-en","mk-ru","nl-en","nl-ru",
+    "no-en","no-ru","pl-be","pl-ru","pl-uk","pt-en","pt-ru","ro-be","ro-ru",
+    "ro-uk","ru-az","ru-be","ru-bg","ru-ca","ru-cs","ru-da","ru-de","ru-el",
+    "ru-en","ru-es","ru-et","ru-fi","ru-fr","ru-hr","ru-hu","ru-hy","ru-it",
+    "ru-lt","ru-lv","ru-mk","ru-nl","ru-no","ru-pl","ru-pt","ru-ro","ru-sk",
+    "ru-sl","ru-sq","ru-sr","ru-sv","ru-tr","ru-uk","sk-en","sk-ru","sl-en",
+    "sl-ru","sq-en","sq-ru","sr-be","sr-ru","sr-uk","sv-en","sv-ru","tr-be",
+    "tr-de","tr-en","tr-ru","tr-uk","uk-bg","uk-cs","uk-de","uk-en","uk-es",
+    "uk-fr","uk-it","uk-pl","uk-ro","uk-ru","uk-sr","uk-tr"]
 
 TAGS = {v: k for k, v in LANGS.items()}
 
-class translate(minqlx.Plugin):
+
+class translate(iouonegirlPlugin):
     def __init__(self):
-        super().__init__()
-        self.add_command(("v_translate", "v_translation"), self.cmd_version)
+        super().__init__(self.__class__.__name__, VERSION)
+
+        self.set_cvar_once("qlx_translate_api_key", "")
+
         self.add_command("urban", self.cmd_urban, usage="<word>|<phrase>")
         self.add_command(("leet", "1337", "l33t"), self.cmd_leet, usage="<word>|<phrase>")
         self.add_command("languages", self.cmd_languages)
-        self.add_hook("player_connect", self.handle_player_connect)
-        self.buffer = []
+        self.add_command("translations", self.cmd_translations)
+        self.add_command("translate-last", self.cmd_translate_last, usage="<to> <player>")
+        self.add_hook("player_disconnect", self.handle_player_disconnect)
+        self.buffer = {}
 
         try:
             textblob
@@ -155,46 +147,76 @@ class translate(minqlx.Plugin):
         self.add_command(("translate", "trans"), self.cmd_translate, usage="<to> <query>")
         self.add_command(("stranslate", "strans"), self.cmd_silent_translate, usage="<to> <query>")
         self.add_command(("define", "def", "definition"), self.cmd_define, usage="<word>")
-        self.add_command(("lang", "language"), self.cmd_language, usage="[<tag>|<language>]")
-        self.add_command(("autotrans", "autotranslate"), self.cmd_auto_translate)
+##        self.add_command(("lang", "language"), self.cmd_language, usage="[<tag>|<language>]")
+##        self.add_command(("autotrans", "autotranslate"), self.cmd_auto_translate)
         self.add_command(("translatecmds", "transcmds", "transcommands", "translatecommands"), self.cmd_commands)
 
     def handle_chat(self, player, msg, channel):
-        if not player: return
-        if not msg: return
+        if channel != "chat": return
 
-        # If you don't want the server to translate commands to people
-        if not AUTO_TRANS_COMMANDS:
-            # check if a command was spoken
-            if msg[0].startswith("!"): return
+        #line = " ".join(msg)
+        if msg[0] == "!": return
 
-        try:
-            blob = textblob.TextBlob(msg)
-            l = blob.detect_language()
-            if l != SERVER_DEFAULT:
-                #self.buffer.append(msg)
-                # this is buffer now
-                translations = {}
-                for p in self.players():
-                    # If it comes from this player, go to next
-                    if p.id == player.id: continue
-                    # If this player doesnt want auto trans, go to next
-                    if not self.help_get_auto_pref(p): continue
-                    # If this is the say_team from the other team, go to next
-                    if channel == minqlx.RED_TEAM_CHAT_CHANNEL and p.team == 'blue': continue
-                    if channel == minqlx.BLUE_TEAM_CHAT_CHANNEL and p.team == 'red': continue
-                    # if this is the default language of the player, go to next
-                    pref_tag = self.help_get_lang_tag(p)
-                    if pref_tag == l: continue
-                    # If there is no translation yet, add it
-                    if not (pref_tag in translations):
-                        translations[pref_tag] = blob.translate(to=pref_tag).raw
-                    # Tell translation
-                    p.tell("^6AutoTrans^7({}->{}){}: {}".format(l, pref_tag, C, translations[pref_tag]))
+        if not player.steam_id in self.buffer:
+            self.buffer[player.steam_id] = []
+
+        self.buffer[player.steam_id].append(msg)
+
+        if len(self.buffer[player.steam_id]) > 3:
+            self.buffer[player.steam_id].pop(0)
 
 
-        except Exception as e:
-            pass
+##        def callback(player, query, results):
+##            def callback_autotrans(_p, _q, _r):
+##                _j = _r.json()
+##                _lang = _j['lang']
+##                _text = _j['text'][0]
+##                _p.tell("^6AutoTrans^7({}){}: {}".format(_lang, C, _text))
+##
+##            # Okay we received a lang tag for the chat message. check if anyone needs a translation
+##            json = results.json()
+##            l = json['lang']
+##            if l != SERVER_DEFAULT: # If the tag is not the server default language...
+##                for p in self.players():
+##                    # If the message comes from this player, go to next
+##                    if p.id == player.id: continue
+##                    # If this player doesnt want auto trans, go to next
+##                    if not self.help_get_auto_pref(p): continue
+##                    # If this is the say_team from another team, go to next
+##                    if channel == minqlx.RED_TEAM_CHAT_CHANNEL and p.team != 'red': continue
+##                    if channel == minqlx.BLUE_TEAM_CHAT_CHANNEL and p.team != 'blue': continue
+##                    # if this is the default language of the player, go to next
+##                    pref_tag = self.help_get_lang_tag(p)
+##                    if pref_tag == l: continue
+##                    # Go fetch the translation
+##                    url = 'https://translate.yandex.net/api/v1.5/tr.json/translate'
+##                    params = {'key':'trnsl.1.1.20160215T152939Z.eb62d98148b07bcd.911d314592dc12c39c3be65184da90198998225c',
+##                        'text':query, 'lang':pref_tag}
+##                    hdr = None
+##                    self.help_fetch(p, query, url, hdr, params, callback_autotrans)
+##
+##        if not player: return
+##        if not msg: return
+##
+##        # If you don't want the server to translate commands to people
+##        if not AUTO_TRANS_COMMANDS:
+##            # check if a command was spoken
+##            if msg[0].startswith("!"): return
+##
+##        if not self.get_cvar("qlx_translate_api_key"):
+##            self.msg("^7No yandex.net API key found. Cannot translate without one...")
+##            return
+##
+##        url = 'https://translate.yandex.net/api/v1.5/tr.json/detect'
+##        params = {'key':self.get_cvar("qlx_translate_api_key"),
+##                'text':msg}
+##        hdr = None
+##
+##        # Fetch the language of the msg
+##        self.help_fetch(player, msg, url, hdr, params, callback)
+
+
+
 
     def cmd_define(self, player, msg, channel):
         if len(msg) != 2:
@@ -226,6 +248,8 @@ class translate(minqlx.Plugin):
 
         try:
             threading.Thread(target=callback).start()
+            self.msg("{}^7: ^2{} \t^7(Looking up definition...)".format(player.name, " ".join(msg)))
+            return minqlx.RET_STOP_ALL
         except Exception as e:
             threading.Thread(target=download_wordnet).start()
 
@@ -238,17 +262,33 @@ class translate(minqlx.Plugin):
         return minqlx.RET_STOP_ALL
 
     def cmd_translate(self, player, msg, channel, silent=False):
+        def callback(_player, _query, _results):
+            _res = _results.json()
+            translated = _res['text'][0]
+            output = "^7Translation ({}): {}{}".format(_res['lang'], C, translated)
+            if silent:
+                player.tell("^6Psst: " + output)
+                return minqlx.RET_STOP_ALL
+            channel.reply(output)
+
+
         if len(msg) < 3:
             return minqlx.RET_USAGE
 
-        if msg[1].lower() in TAGS:
+        if "-" in msg[1].lower():
+            if msg[1].lower() in yandex:
+                to = msg[1]
+            else:
+                player.tell("^6Translation ({}) not supported... Try ^2!translations ^6for a list.".format(msg[1]))
+                return minqlx.RET_STOP_ALL
+        elif msg[1].lower() in TAGS:
             to = msg[1]
         elif msg[1].title() in LANGS:
             to = LANGS[msg[1].title()]
         else:
             matches = []
             for lang in LANGS:
-                if msg[1].title() in lang:
+                if msg[1] in lang.lower():
                     matches.append([lang, LANGS[lang]])
             if not matches:
                 player.tell("^6No languages matched {}... Try ^2!languages ^6for a list.".format(msg[1]))
@@ -257,24 +297,89 @@ class translate(minqlx.Plugin):
                 lang, tag = matches[0]
                 to = tag
             else:
-                _map = map(lambda pair: "{}->{}".format(pair[0], pair[1]), matches)
+                _map = map(lambda pair: "{}-{}".format(pair[0], pair[1]), matches)
                 player.tell("^6Multiple matches found: ^7" + ", ".join(list(_map)))
                 return minqlx.RET_STOP_ALL
 
 
         message = " ".join(msg[2:])
+        if not self.get_cvar("qlx_translate_api_key"):
+            self.msg("^7No yandex.net API key installed. Cannot translate without one...")
+            return
 
-        blob = textblob.TextBlob(message)
-        try:
-            translated = blob.translate(to=to).raw
-        except Exception as e:
-            translated = message
+        url = 'https://translate.yandex.net/api/v1.5/tr.json/translate'
+        params = {'key':self.get_cvar("qlx_translate_api_key"),
+                'text':message,
+                'lang':to}
+        hdr = None
 
-        output = "^7Translation: {}{}".format(C, translated)
-        if silent:
-            player.tell("^6Psst: " + output)
+        self.help_fetch(player, message, url, hdr, params, callback)
+
+    def cmd_translate_last(self, player, msg, channel, silent=False):
+        def callback(_player, _query, _results):
+            _res = _results.json()
+            translated = _res['text'][0]
+            output = "^7Translation ({}): {}{}".format(_res['lang'], C, translated)
+            if silent:
+                player.tell("^6Psst: " + output)
+                return minqlx.RET_STOP_ALL
+            channel.reply(output)
+
+        @minqlx.thread
+        def fetch_intervals(lst):
+            for message in lst:
+                url = 'https://translate.yandex.net/api/v1.5/tr.json/translate'
+                params = {'key':self.get_cvar("qlx_translate_api_key"),
+                    'text':message,
+                    'lang':to}
+                hdr = None
+                self.help_fetch(player, message, url, hdr, params, callback)
+                time.sleep(0.8)
+
+        if len(msg) < 3:
+            return minqlx.RET_USAGE
+
+        if "-" in msg[1].lower():
+            if msg[1].lower() in yandex:
+                to = msg[1]
+            else:
+                player.tell("^6Translation ({}) not supported... Try ^2!translations ^6for a list.".format(msg[1]))
+                return minqlx.RET_STOP_ALL
+        elif msg[1].lower() in TAGS:
+            to = msg[1]
+        elif msg[1].title() in LANGS:
+            to = LANGS[msg[1].title()]
+        else:
+            matches = []
+            for lang in LANGS:
+                if msg[1] in lang.lower():
+                    matches.append([lang, LANGS[lang]])
+            if not matches:
+                player.tell("^6No languages matched {}... Try ^2!languages ^6for a list.".format(msg[1]))
+                return minqlx.RET_STOP_ALL
+            elif len(matches) == 1:
+                lang, tag = matches[0]
+                to = tag
+            else:
+                _map = map(lambda pair: "{}-{}".format(pair[0], pair[1]), matches)
+                player.tell("^6Multiple matches found: ^7" + ", ".join(list(_map)))
+                return minqlx.RET_STOP_ALL
+
+
+        target_player = self.find_by_name_or_id(player, msg[2])
+        if not target_player:
             return minqlx.RET_STOP_ALL
-        channel.reply(output)
+        # move up
+        if not target_player.steam_id in self.buffer or not self.buffer[target_player.steam_id]:
+            player.tell("Translate error: No chat buffered from {}.".format(target_player.name))
+
+        if not self.get_cvar("qlx_translate_api_key"):
+            self.msg("^7No yandex.net API key installed. Cannot translate without one...")
+            return
+
+        fetch_intervals(self.buffer[target_player.steam_id])
+
+
 
 
     @minqlx.delay(1)
@@ -282,63 +387,78 @@ class translate(minqlx.Plugin):
         self.msg("^1TranslationError^7: missing library textblob. Install via ^6$ sudo pip install textblob ^7and restart server.")
 
 
-    def cmd_language(self, player, msg, channel):
-        # if no arguments given, just check the language
-        if len(msg) < 2:
-            if self.help_get_auto_pref(player):
-                tag = self.help_get_lang_tag(player)
-                lang = TAGS.get(tag, DEFAULT_LANG)
-                channel.reply("^7Your default language is: ^6{}^7({}). Use ^2!lang^7 to change it.".format(lang, tag))
-                return
-            else:
-                channel.reply("^7AutoTranslation is turned off. Activate with !autotrans or !language X")
-                return
-        # otherwise try to set a new language
-        else:
-            lang = TAGS.get(msg[1].lower()) # try correct tag
-            if lang:
-                self.help_set_lang_tag(player, msg[1].lower())
-                channel.reply("^7AutoTranslate language changed to: ^6{}^7({}).".format(lang, msg[1]))
-                self.help_change_auto_pref(player, 1)
-                return
-            else: # try every language for a match
-                maybe = []
-                for lang in LANGS:
-                    if msg[1].title() in lang:
-                        maybe.append([lang, LANGS[lang]])
-                if not maybe:
-                    player.tell("^6No languages matched {}... Try ^2!languages ^6for a list.".format(msg[1]))
-                    return minqlx.RET_STOP_ALL
-                elif len(maybe) == 1:
-                    lang, tag = maybe[0]
-                    self.help_set_lang_tag(player, tag)
-                    channel.reply("^7AutoTranslate language changed to: ^6{}^7({}).".format(lang, tag))
-                    self.help_change_auto_pref(player, 1)
-                    return
-                else:
-                    _map = map(lambda pair: "{}->{}".format(pair[0], pair[1]), maybe)
-                    player.tell("^6Multiple matches found: ^7" + ", ".join(list(_map)))
-                    return minqlx.RET_STOP_ALL
+##    def cmd_language(self, player, msg, channel):
+##        # if no arguments given, just check the language
+##        if len(msg) < 2:
+##            if self.help_get_auto_pref(player):
+##                tag = self.help_get_lang_tag(player)
+##                lang = TAGS.get(tag, DEFAULT_LANG)
+##                channel.reply("^7Your default language is: ^6{}^7({}). Use ^2!lang^7 to change it.".format(lang, tag))
+##                return
+##            else:
+##                channel.reply("^7AutoTranslation is turned off. Activate with !autotrans or !language X")
+##                return
+##        # otherwise try to set a new language
+##        else:
+##            lang = TAGS.get(msg[1].lower()) # try correct tag
+##            if lang:
+##                self.help_set_lang_tag(player, msg[1].lower())
+##                channel.reply("^7AutoTranslate language changed to: ^6{}^7({}).".format(lang, msg[1]))
+##                self.help_change_auto_pref(player, 1)
+##                return
+##            else: # try every language for a match
+##                maybe = []
+##                for lang in LANGS:
+##                    if msg[1].title() in lang:
+##                        maybe.append([lang, LANGS[lang]])
+##                if not maybe:
+##                    player.tell("^6No languages matched {}... Try ^2!languages ^6for a list.".format(msg[1]))
+##                    return minqlx.RET_STOP_ALL
+##                elif len(maybe) == 1:
+##                    lang, tag = maybe[0]
+##                    self.help_set_lang_tag(player, tag)
+##                    channel.reply("^7AutoTranslate language changed to: ^6{}^7({}).".format(lang, tag))
+##                    self.help_change_auto_pref(player, 1)
+##                    return
+##                else:
+##                    _map = map(lambda pair: "{}->{}".format(pair[0], pair[1]), maybe)
+##                    player.tell("^6Multiple matches found: ^7" + ", ".join(list(_map)))
+##                    return minqlx.RET_STOP_ALL
 
 
 
     def cmd_languages(self, player, msg, channel):
-        _printable = map(lambda key: "^5{}^7({})".format(key, LANGS[key]), sorted(LANGS))
-        player.tell("^6Supported languages: ^5" + ", ".join(list(_printable)))
+        _printable = []
+        keys = list(LANGS.keys())
+        keys.sort()
+        for i,lang in enumerate(keys):
+            newline = "" if i % 4 else "\n"
+            _printable.append("{}^5{}^7: ^4{}".format(newline, lang, LANGS[lang]))
+        #_printable.sort()
+        player.tell("^6Supported languages: ^7" + "^7, ".join(_printable))
         channel.reply("^7{} can open their console to see all the supported languages.".format(player.name))
 
 
-    def cmd_auto_translate(self, player, msg, channel):
-        # Get the preference
-        old_pref = self.help_get_auto_pref(player)
-        # Change it
-        self.help_change_auto_pref(player)
+##    def cmd_auto_translate(self, player, msg, channel):
+##        # Get the preference
+##        old_pref = self.help_get_auto_pref(player)
+##        # Change it
+##        self.help_change_auto_pref(player)
+##
+##        if old_pref:
+##            channel.reply("^7{} will stop receiving automatic translations.".format(player.name))
+##        else:
+##            tag = self.help_get_lang_tag(player)
+##            channel.reply("^7{} activated auto translations in their default language ({}).".format(player.name, tag))
 
-        if old_pref:
-            channel.reply("^7{} will stop receiving automatic translations.".format(player.name))
-        else:
-            tag = self.help_get_lang_tag(player)
-            channel.reply("^7{} activated auto translations in their default language ({}).".format(player.name, tag))
+    def cmd_translations(self, player, msg, channel):
+        def add_colors(tr):
+            return "{}{}^7-{}{}".format("^5", tr[0:2], "^4", tr[3:5])
+
+        _printable = map(add_colors, yandex)
+        player.tell("^6Supported translations: \n" + "^7, ".join(list(_printable)))
+        channel.reply("^7{} can open their console to see all the supported translations.".format(player.name))
+
 
     def cmd_urban(self, player, msg, channel):
         if len(msg) < 2:
@@ -348,7 +468,7 @@ class translate(minqlx.Plugin):
         url = 'https://mashape-community-urban-dictionary.p.mashape.com/define?term={}'.format(query)
         headers =  { "X-Mashape-Key": "CAwrPAMPB6msh3K3YsRflDE0hmswp14vd4tjsnwbD5rMUVQWvo" }
 
-        self.help_fetch(player, query, url, headers, self.help_callback_urban)
+        self.help_fetch(player, query, url, headers, None, self.help_callback_urban)
 
     def cmd_leet(self, player, msg, channel):
         if len(msg)< 2:
@@ -356,16 +476,18 @@ class translate(minqlx.Plugin):
         query = "+".join(msg[1:])
         url = 'https://montanaflynn-l33t-sp34k.p.mashape.com/encode?text={}'.format(query)
         headers =  { "X-Mashape-Key": "CAwrPAMPB6msh3K3YsRflDE0hmswp14vd4tjsnwbD5rMUVQWvo" }
-        self.help_fetch(player, query, url, headers, self.help_callback_leet)
+        self.help_fetch(player, query, url, headers, None, self.help_callback_leet)
         return minqlx.RET_STOP_ALL
 
     @minqlx.thread
-    def help_fetch(self, player, query, url, headers, callback):
-        res = requests.get(url, headers=headers)
+    def help_fetch(self, player, query, url, headers, params, callback):
+        @minqlx.next_frame
+        def error(m): self.msg(m)
+        res = requests.get(url, headers=headers, params=params)
         if res.status_code != requests.codes.ok:
-            self.msg("^1RequestError^7: code {}.".format(res.status_code))
-            return
-        callback(player, query, res)
+            error("^1RequestError^7: code {}.".format(res.status_code))
+        else:
+            callback(player, query, res)
 
     def help_callback_urban(self, player, query, results):
         results = results.json()
@@ -382,60 +504,33 @@ class translate(minqlx.Plugin):
     def help_callback_leet(self, player, query, results):
         self.msg("{}^7: ^2(!leet) {}".format(player.name, results))
 
-    def help_get_auto_pref(self, player):
-        key = AUTO_KEY.format(player.steam_id)
-        if not (key in self.db): self.db[key] = 0
-        return int(self.db[key])
-
-    def help_change_auto_pref(self, player, force=0):
-        key = AUTO_KEY.format(player.steam_id)
-        self.db[key] = force or 0 if self.help_get_auto_pref(player) else 1
-
-    def cmd_version(self, player, msg, channel):
-        self.check_version(channel=channel)
-
-    @minqlx.thread
-    def check_version(self, player=None, channel=None):
-        url = "https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/{}.py".format(self.__class__.__name__)
-        res = requests.get(url)
-        last_status = res.status_code
-        if res.status_code != requests.codes.ok: return
-        for line in res.iter_lines():
-            if line.startswith(b'VERSION'):
-                line = line.replace(b'VERSION = ', b'')
-                line = line.replace(b'"', b'')
-                # If called manually and outdated
-                if channel and VERSION.encode() != line:
-                    channel.reply("^7Currently using ^3iou^7one^4girl^7's ^6{}^7 plugin ^1outdated^7 version ^6{}^7.".format(self.__class__.__name__, VERSION))
-                # If called manually and alright
-                elif channel and VERSION.encode() == line:
-                    channel.reply("^7Currently using ^3iou^7one^4girl^7's latest ^6{}^7 plugin version ^6{}^7.".format(self.__class__.__name__, VERSION))
-                # If routine check and it's not alright.
-                elif player and VERSION.encode() != line:
-                    time.sleep(15)
-                    try:
-                        player.tell("^3Plugin update alert^7:^6 {}^7's latest version is ^6{}^7 and you're using ^6{}^7!".format(self.__class__.__name__, line.decode(), VERSION))
-                    except Exception as e: minqlx.console_command("echo {}".format(e))
-                return
-
-    def help_get_lang_tag(self, player):
-        # formulate key
-        key = LANG_KEY.format(player.steam_id)
-        # if no language defined yet, set the default
-        if not (key in self.db): self.help_set_lang_tag(player, DEFAULT_LANG)
-        # return tag
-        return self.db[key]
-
-    def help_set_lang_tag(self, player, tag):
-        # formulate key
-        key = LANG_KEY.format(player.steam_id)
-        # set it (after a quick test that it exists)
-        if TAGS.get(tag): self.db[key] = tag
+##    def help_get_auto_pref(self, player):
+##        key = AUTO_KEY.format(player.steam_id)
+##        if not (key in self.db): self.db[key] = 0
+##        return int(self.db[key])
+##
+##    def help_change_auto_pref(self, player, force=0):
+##        key = AUTO_KEY.format(player.steam_id)
+##        self.db[key] = force or 0 if self.help_get_auto_pref(player) else 1
+##
+##    def help_get_lang_tag(self, player):
+##        # formulate key
+##        key = LANG_KEY.format(player.steam_id)
+##        # if no language defined yet, set the default
+##        if not (key in self.db): self.help_set_lang_tag(player, DEFAULT_LANG)
+##        # return tag
+##        return self.db[key]
+##
+##    def help_set_lang_tag(self, player, tag):
+##        # formulate key
+##        key = LANG_KEY.format(player.steam_id)
+##        # set it (after a quick test that it exists)
+##        if TAGS.get(tag): self.db[key] = tag
 
     @minqlx.delay(0.3)
     def help_delay_msg(self, message):
         self.msg(message)
 
-    def handle_player_connect(self, player):
-        if self.db.has_permission(player, 5):
-            self.check_version(player=player)
+    def handle_player_disconnect(self, player, reason):
+        if player.steam_id in self.buffer:
+            del self.buffer[player.steam_id]
