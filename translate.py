@@ -6,8 +6,7 @@
 # except for the version command related code.
 #
 # It tracksprovides commands to translate words and sentences,
-# look up definitions, and provide autotranslation to personal
-# languages.
+# look up definitions, and much more
 #
 # To use this plugin, you need to install 'textblob':
 # 1. Open a terminal and type:  $ sudo pip install textblob
@@ -23,7 +22,8 @@
 # on yandex.net and get an API key, which you'll set as a cvar.
 #
 # Uses
-# - qlx_translate_api_key "apikey1337thisisnotanactualapikey69"
+# set qlx_translate_api_key "apikey1337thisisnotanactualapikey69"
+#       ^ get your key at: https://tech.yandex.com/keys/get/?service=trnsl
 
 import minqlx
 import os
@@ -33,7 +33,7 @@ import random
 import threading
 import requests
 
-VERSION = "v0.12"
+VERSION = "v0.12.1"
 
 try:
     import textblob
