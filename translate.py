@@ -8,16 +8,6 @@
 # It tracksprovides commands to translate words and sentences,
 # look up definitions, and much more
 #
-# To use this plugin, you need to install 'textblob':
-# 1. Open a terminal and type:  $ sudo pip install textblob
-#
-# 2. When it's done, restart the python module via:
-# - /rcon pyrestart in quakelive
-# - OR pyrestart in the server console
-#
-# 3. Once you have it installed, try a word definition.
-# A one-time (10mb) file will be downloaded to the server.
-#
 # To use the translation functions, please make a free account
 # on yandex.net and get an API key, which you'll set as a cvar.
 #
@@ -33,12 +23,8 @@ import random
 import threading
 import requests
 
-VERSION = "v0.12.1"
+VERSION = "v0.13"
 
-try:
-    import textblob
-except:
-    pass
 
 
 # This code makes sure the required superclass is loaded automatically
@@ -130,26 +116,23 @@ class translate(iouonegirlPlugin):
         self.set_cvar_once("qlx_translate_api_key", "")
 
         self.add_command("urban", self.cmd_urban, usage="<word>|<phrase>")
-        self.add_command(("leet", "1337", "l33t"), self.cmd_leet, usage="<word>|<phrase>")
+        #self.add_command(("leet", "1337", "l33t"), self.cmd_leet, usage="<word>|<phrase>")
         self.add_command("languages", self.cmd_languages)
         self.add_command("translations", self.cmd_translations)
-        self.add_command("translate-last", self.cmd_translate_last, usage="<to> <player>")
+        self.add_command(("translate-last", "trans-last", "translast", "translatelast"), self.cmd_translate_last, usage="<to> <player>")
         self.add_hook("player_disconnect", self.handle_player_disconnect)
         self.buffer = {}
 
-        try:
-            textblob
-        except:
-            self.help_textblob()
-            return
-
         self.add_hook("chat", self.handle_chat)
-        self.add_command(("translate", "trans"), self.cmd_translate, usage="<to> <query>")
-        self.add_command(("stranslate", "strans"), self.cmd_silent_translate, usage="<to> <query>")
-        self.add_command(("define", "def", "definition"), self.cmd_define, usage="<word>")
+        self.add_command(("translate", "trans"), self.cmd_translate, usage="<to> <sentence>")
+        self.add_command(("stranslate", "strans"), self.cmd_silent_translate, usage="<to> <sentence>")
+        #self.add_command(("define", "def", "definition"), self.cmd_define, usage="<word>")
 ##        self.add_command(("lang", "language"), self.cmd_language, usage="[<tag>|<language>]")
 ##        self.add_command(("autotrans", "autotranslate"), self.cmd_auto_translate)
         self.add_command(("translatecmds", "transcmds", "transcommands", "translatecommands"), self.cmd_commands)
+        self.add_command(("transexamples", "translateexamples"), self.cmd_examples)
+        if not self.get_cvar("qlx_translate_api_key"):
+            self.msg("No Yandex API key set. Get one for free: https://tech.yandex.com/keys/get/?service=trnsl")
 
     def handle_chat(self, player, msg, channel):
         if channel != "chat": return
@@ -217,47 +200,19 @@ class translate(iouonegirlPlugin):
 
 
 
+    def cmd_examples(self, player, msg, channel):
+        player.tell("^6Translation example commands:\n")
+        player.tell("^2!translate ru What is love?    ^3(tr to russian)")
+        player.tell("^2!stranslate fr No one will see this   ^3(silent translation)")
+        player.tell("^2!translate nl-en Boom    ^3(force origin language)")
+        player.tell("^2!translate-last en cooller   ^3(tr last 3 cooller msgs to english)")
 
-    def cmd_define(self, player, msg, channel):
-        if len(msg) != 2:
-            return minqlx.RET_USAGE
-
-        def download_wordnet():
-            self.msg("^6TranslatePlugin: ^7Starting one-time package 'wordnet' download...")
-            import nltk
-            nltk.download('wordnet')
-            self.msg("^6TranslatePlugin: ^7Wordnet downloading successfull. Installing... ^2complete!")
-            try:
-                callback(True)
-            except Exception as e:
-                self.msg("^1DefinitionError^7: {}.".format(e))
-
-        def callback(second_time=False):
-            try:
-                w = textblob.Word(msg[1])
-                defs = w.definitions
-                if not defs:
-                    channel.reply(C+"No results found for: {}".format(msg[1]))
-                else:
-                    channel.reply("^7Definition(s): " + C +  "'^7, ^4'".join(defs))
-            except:
-                if not second_time:
-                    download_wordnet()
-                    #threading.Thread(target=download_wordnet).start()
-
-
-        try:
-            threading.Thread(target=callback).start()
-            self.msg("{}^7: ^2{} \t^7(Looking up definition...)".format(player.name, " ".join(msg)))
-            return minqlx.RET_STOP_ALL
-        except Exception as e:
-            threading.Thread(target=download_wordnet).start()
 
     def cmd_commands(self, player, msg, channel):
-        channel.reply("^7TranslationCommands: ^2!languages^7, ^2!lang^7, ^2!define^7, ^2!urban^7, ^2!translate^7, ^2!stranslate^7, ^2!autotrans")
+        channel.reply("^7TranslationCommands: ^2!languages^7, ^2!translations^7, ^2!urban^7, ^2!translate^7, ^2!stranslate^7, ^2!translate-last")
 
     def cmd_silent_translate(self, player, msg, channel):
-        player.tell("^6TranslateRequest: ^2{}".format(msg[1:]))
+        #player.tell("^6TranslateRequest: ^2{}".format(msg[1:]))
         self.cmd_translate(player, msg, channel, True)
         return minqlx.RET_STOP_ALL
 
@@ -265,11 +220,14 @@ class translate(iouonegirlPlugin):
         def callback(_player, _query, _results):
             _res = _results.json()
             translated = _res['text'][0]
-            output = "^7Translation ({}): {}{}".format(_res['lang'], C, translated)
+            output = "^7({}): {}{}".format(_res['lang'], C, translated)
             if silent:
                 player.tell("^6Psst: " + output)
                 return minqlx.RET_STOP_ALL
-            channel.reply(output)
+            if self.help_be_quiet(player):
+                minqlx.SPECTATOR_CHAT_CHANNEL.reply(output)
+            else:
+                channel.reply(output)
 
 
         if len(msg) < 3:
@@ -304,8 +262,8 @@ class translate(iouonegirlPlugin):
 
         message = " ".join(msg[2:])
         if not self.get_cvar("qlx_translate_api_key"):
-            self.msg("^7No yandex.net API key installed. Cannot translate without one...")
-            return
+            player.tell("^7No yandex.net API key installed. Please contact server admin.")
+            return minqlx.RET_STOP_ALL
 
         url = 'https://translate.yandex.net/api/v1.5/tr.json/translate'
         params = {'key':self.get_cvar("qlx_translate_api_key"),
@@ -316,14 +274,13 @@ class translate(iouonegirlPlugin):
         self.help_fetch(player, message, url, hdr, params, callback)
 
     def cmd_translate_last(self, player, msg, channel, silent=False):
+        @minqlx.next_frame
         def callback(_player, _query, _results):
             _res = _results.json()
             translated = _res['text'][0]
-            output = "^7Translation ({}): {}{}".format(_res['lang'], C, translated)
-            if silent:
-                player.tell("^6Psst: " + output)
-                return minqlx.RET_STOP_ALL
-            channel.reply(output)
+            output = "^7({}): {}{}".format(_res['lang'], C, translated)
+            player.tell(output)
+            return minqlx.RET_STOP_ALL
 
         @minqlx.thread
         def fetch_intervals(lst):
@@ -374,17 +331,14 @@ class translate(iouonegirlPlugin):
             player.tell("Translate error: No chat buffered from {}.".format(target_player.name))
 
         if not self.get_cvar("qlx_translate_api_key"):
-            self.msg("^7No yandex.net API key installed. Cannot translate without one...")
-            return
+            player.tell("^7No yandex.net API key installed. Cannot translate without one...")
+            return minqlx.RET_STOP_ALL
 
         fetch_intervals(self.buffer[target_player.steam_id])
+        return minqlx.RET_STOP_ALL
 
 
 
-
-    @minqlx.delay(1)
-    def help_textblob(self):
-        self.msg("^1TranslationError^7: missing library textblob. Install via ^6$ sudo pip install textblob ^7and restart server.")
 
 
 ##    def cmd_language(self, player, msg, channel):
@@ -436,7 +390,12 @@ class translate(iouonegirlPlugin):
             _printable.append("{}^5{}^7: ^4{}".format(newline, lang, LANGS[lang]))
         #_printable.sort()
         player.tell("^6Supported languages: ^7" + "^7, ".join(_printable))
-        channel.reply("^7{} can open their console to see all the supported languages.".format(player.name))
+
+        msg = "^7{} can open their console to see all the supported languages.".format(player.name)
+        if self.help_be_quiet(player):
+            minqlx.SPECTATOR_CHAT_CHANNEL.reply(msg)
+        else:
+            channel.reply(msg)
 
 
 ##    def cmd_auto_translate(self, player, msg, channel):
@@ -457,7 +416,11 @@ class translate(iouonegirlPlugin):
 
         _printable = map(add_colors, yandex)
         player.tell("^6Supported translations: \n" + "^7, ".join(list(_printable)))
-        channel.reply("^7{} can open their console to see all the supported translations.".format(player.name))
+        m = "^7{} can open their console to see all the supported translations.".format(player.name)
+        if self.help_be_quiet(player):
+            minqlx.SPECTATOR_CHAT_CHANNEL.reply(m)
+        else:
+            channel.reply(m)
 
 
     def cmd_urban(self, player, msg, channel):
@@ -490,16 +453,27 @@ class translate(iouonegirlPlugin):
             callback(player, query, res)
 
     def help_callback_urban(self, player, query, results):
+        @minqlx.next_frame
+        def msg(m):
+            if self.help_be_quiet(player):
+                minqlx.SPECTATOR_CHAT_CHANNEL.reply(m)
+            else:
+                self.msg(m)
+
         results = results.json()
         if results['result_type'] != "no_results":
             first_result = results['list'][0]
             definition = first_result['definition']
             example = first_result['example']
-            self.msg("^5UrbanDef: ^7{}".format(definition))
+
+            msg("^5UrbanDef: ^7{}".format(definition))
             if example:
-                self.help_delay_msg("^5UrbanExample: ^7{}".format(example))
+                msg("^5UrbanExample: ^7{}".format(example))
         else:
-            self.msg("{}No urban dict results found for: ".format(C, query))
+            msg("{}No urban dict results found for: ".format(C, query))
+
+    def help_be_quiet(self, player):
+        return player.team == "spectator" and self.game.type_short == "duel" and self.game.state == "in_progress"
 
     def help_callback_leet(self, player, query, results):
         self.msg("{}^7: ^2(!leet) {}".format(player.name, results))
