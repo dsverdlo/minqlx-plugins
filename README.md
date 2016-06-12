@@ -31,7 +31,7 @@ I can usually be found on IRC (http://webchat.quakenet.org/?channels=minqlbot).
 [`myessentials`](https://github.com/dsverdlo/minqlx-plugins#myessentials)|Use names with the essential commands, like !red iou, !mute iou, !kick iou, ...|[`raw`](https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/myessentials.py)
 [`player_info`](https://github.com/dsverdlo/minqlx-plugins#player_info)|Display some player information. Maybe upon player connect if you want.|[`raw`](https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/player_info.py)
 [`railable`](https://github.com/dsverdlo/minqlx-plugins#railable)|Toggle to get a 'railable' message when your health drops too low.|[`raw`](https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/railable.py)
-[`translate`](https://github.com/dsverdlo/minqlx-plugins#translate)|Look up normal and urban definitions. Translate via google translate (broken atm).|[`raw`](https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/translate.py)
+[`translate`](https://github.com/dsverdlo/minqlx-plugins#translate)|Look up normal and urban definitions, translate works and sentences, translate last 3 things someone said.|[`raw`](https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/translate.py)
 
 
 
@@ -175,13 +175,20 @@ Furthermore this plugin uses a text file in which exceptions can be placed for t
   - This plugin is not considered cheating, since you could also get your HUD to display this information
 
 # **translate**
-- Provides methods to translate any words or sentences into another language, using the Google Translate API. Also able to look up normal english definitions and Urban Dictionaries definitions. There is also an automatic translation feature, which will automatically translate messages into your native or chosen language. **Important** Requires installation of the 'textblob' python library. Instructions are in the plugin comments
+- Provides methods to translate any words or sentences into another language, using the Yandex Translate API. Also able to look up normal english definitions and Urban Dictionaries definitions.
 - CVARS
+  - qlx_translate_api_key "" 
 - COMMANDS
-  - !translate \<tag\> \<sentence\>
+  - !translate-last \<language-name-or-tag\> \<player\> - Translates the last 3 things the given player said into the language specified
+  - !translate \<language-name-or-tag\> \<word-or-sentence\>
   - !translate en Deze zin is vertaald geweest. -> Translation: This sentence has been translated.
+  - !translate Russian Understood -> Translation (en-ru): Понимал
   - !define match -> Definition: a contest in which people or teams compete against each other in a particular sport.
   - !urban bye -> UrbanDef: a nicer way to say "your f-ing ugly. get out of my face"
+  - !languages - Displays all the supported languages and their tags
+  - !translations - Displays all the supported translation directions
 - NOTES
-  - Currently the translation API is down!
+  - Get your FREE yandex API key here: https://tech.yandex.com/keys/get/?service=trnsl
+  - Example usage: http://i.imgur.com/WL5zNOR.png
+  - **Important** Requires installation of the 'textblob' python library. Instruction in the plugin code.
 
