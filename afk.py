@@ -21,7 +21,7 @@ import time
 import os
 import requests
 
-VERSION = "v0.14"
+VERSION = "v0.15"
 
 VAR_WARNING = "qlx_afk_warning_seconds"
 VAR_DETECTION = "qlx_afk_detection_seconds"
@@ -73,6 +73,7 @@ class afk(iouonegirlPlugin):
         self.add_hook("round_end", self.handle_round_end)
         self.add_hook("team_switch", self.handle_player_switch)
         self.add_hook("unload", self.handle_unload)
+        self.add_hook("death", self.handle_death)
 
 
 
@@ -115,6 +116,8 @@ class afk(iouonegirlPlugin):
             for p in teams['red'] + teams['blue']:
                 pid = p.steam_id
 
+                if not p.is_alive: continue
+
                 if pid not in self.positions:
                     self.positions[pid] = [self.help_get_pos(p), 0]
 
@@ -135,6 +138,12 @@ class afk(iouonegirlPlugin):
                         self.punished.remove(p)
 
             time.sleep(interval)
+
+    def handle_death(self, victim, killer, data):
+        if victim in self.punished:
+            self.punished.remove(victim)
+        if victim.steam_id in self.positions:
+            del self.positions[victim.steam_id]
 
     @minqlx.next_frame
     def help_warn(self, player):
