@@ -29,7 +29,7 @@ I can usually be found on IRC (http://webchat.quakenet.org/?channels=minqlbot).
 [`mybalance`](https://github.com/dsverdlo/minqlx-plugins#mybalance)|Elo-limits, warmup reminders, team balancing for CA,TDM,CTF,FT.|[`raw`](https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/mybalance.py)
 [`myban`](https://github.com/dsverdlo/minqlx-plugins#myban)|Use the !ban command with a player's name instead of ID.|[`raw`](https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/myban.py)
 [`myessentials`](https://github.com/dsverdlo/minqlx-plugins#myessentials)|Use names with the essential commands, like !red iou, !mute iou, !kick iou, ...|[`raw`](https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/myessentials.py)
-[`player_info`](https://github.com/dsverdlo/minqlx-plugins#player_info)|Display some player information. Maybe upon player connect if you want.|[`raw`](https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/player_info.py)
+[`player_info`](https://github.com/dsverdlo/minqlx-plugins#player_info)|Display some player information. Maybe upon player connect if you want.(Also gives a warning or a ban for deactivated qlstats accounts)|[`raw`](https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/player_info.py)
 [`railable`](https://github.com/dsverdlo/minqlx-plugins#railable)|Toggle to get a 'railable' message when your health drops too low.|[`raw`](https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/railable.py)
 [`translate`](https://github.com/dsverdlo/minqlx-plugins#translate)|Look up normal and urban definitions, translate works and sentences, translate last 3 things someone said.|[`raw`](https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/translate.py)
 
@@ -159,10 +159,12 @@ Furthermore this plugin uses a text file in which exceptions can be placed for t
 - CVARS
   - qlx_pinfo_display_auto "0" (set this to 1 if you want to see automatic info upon player connect)
   - qlx_pinfo_show_deactivated "1" (while this is "1" it will display a warning when a player connects with deactivated qlstats acccount (due to cheating or other bad things))
+  - qlx_pinfo_ban_deactivated "0" (set this to "1" to automatically ban players with the deactivated qlstats status)
 - COMMANDS
   - !info [\<player\>] - display some information, like games played, quit frequency, glicko
   - !scoreboard - display scoreboard information when players fall 'below' it
   - !allelo [\<player\>] - for one person, display the known skill ratings of each game-mode
+- NOTES
 
 # **railable**
 - This plugin can give you a message (centerprinted) when your health drops to a level where you can be killed with 1 rail. Developed for Clan Arena.
@@ -190,5 +192,4 @@ Furthermore this plugin uses a text file in which exceptions can be placed for t
 - NOTES
   - Get your FREE yandex API key here: https://tech.yandex.com/keys/get/?service=trnsl
   - Example usage: http://i.imgur.com/WL5zNOR.png
-  - **Important** Requires installation of the 'textblob' python library. Instruction in the plugin code.
 
