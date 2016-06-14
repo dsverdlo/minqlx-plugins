@@ -193,3 +193,8 @@ Furthermore this plugin uses a text file in which exceptions can be placed for t
   - Get your FREE yandex API key here: https://tech.yandex.com/keys/get/?service=trnsl
   - Example usage: http://i.imgur.com/WL5zNOR.png
 
+
+# **Donate**
+When minqlbot became popular and I found out we could write our own plugins, I saw an opportunity and a vision to put my coding skills to good use and improve the Quake Live gameplay experience. This hobby, as I would call it, kind of pays for its own in the sense that I feel like I have contributed something useful. As I see my plugins used and liked by so many players/servers, I find all the hours spent coding well worthwhile. Since some people asked, I will provide a donation link below for any of you generous people to use. Any donations given will be incredibly appreciated and be going straight towards keeping my motivation and creationism at its peak.
+
+[![paypal](https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif)](paypal.me/dsverdlo)
