@@ -9,18 +9,24 @@
 # When players fall off the scoreboard, they are now also able
 # to view their information
 #
+# Players deactivated on qlstats can be banned or just
+# trigger a server warning
+#
 # Uses:
-# - qlx_pinfo_display_auto "0"
-# - qlx_pinfo_show_deactivated "1"
-#       ^ (If this is 1 then a warning will be shown of players who are deactivated on qlstats)
+# - set qlx_pinfo_display_auto "0"
+# - set qlx_pinfo_show_deactivated "1"
+#          ^ (If this is 1 then a warning will be shown of players who are deactivated on qlstats)
+# - set qlx_pinfo_ban_deactivated "0"
 
 import minqlx
 import requests
 import itertools
 import threading
+import datetime
 import random
 import time
 import os
+import re
 
 # This code makes sure the required superclass is loaded automatically
 try:
@@ -36,11 +42,13 @@ except:
         minqlx.CHAT_CHANNEL.reply("^1iouonegirl abstract plugin download failed^7: {}".format(e))
         raise
 
-VERSION = "v0.28"
+VERSION = "v0.29"
 
 PLAYER_KEY = "minqlx:players:{}"
 COMPLETED_KEY = PLAYER_KEY + ":games_completed"
 LEFT_KEY = PLAYER_KEY + ":games_left"
+LENGTH_REGEX = re.compile(r"(?P<number>[0-9]+) (?P<scale>seconds?|minutes?|hours?|days?|weeks?|months?|years?)")
+TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 # Elo retrieval vars
 EXT_SUPPORTED_GAMETYPES = ("ca", "ctf", "dom", "ft", "tdm", "duel", "ffa")
@@ -59,6 +67,7 @@ class player_info(iouonegirlPlugin):
         self.set_cvar_once("qlx_balanceApi", "elo")
         self.set_cvar_once("qlx_pinfo_display_auto", "0")
         self.set_cvar_once("qlx_pinfo_show_deactivated", "1")
+        self.set_cvar_once("qlx_pinfo_ban_deactivated", "0")
 
         self.add_command("info", self.cmd_player_info,  usage="[<id>|<name>]")
         self.add_command("scoreboard", self.cmd_scoreboard, usage="[<id>|<name>]")
@@ -68,7 +77,13 @@ class player_info(iouonegirlPlugin):
 
 
     def handle_player_connect(self, player):
-        if self.get_cvar("qlx_pinfo_display_auto", int) or self.get_cvar("qlx_pinfo_show_deactivated", int):
+        cond = self.get_cvar("qlx_pinfo_display_auto", int)
+        cond += self.get_cvar("qlx_pinfo_show_deactivated", int)
+        cond += self.get_cvar("qlx_pinfo_ban_deactivated", int)
+
+        human = str(player.steam_id)[0] != "9"
+
+        if human and cond:
             self.fetch(player, self.game.type_short, None)
 
 
@@ -186,11 +201,19 @@ class player_info(iouonegirlPlugin):
                 last_status = -1
                 continue
 
-            if not channel and self.get_cvar("qlx_pinfo_show_deactivated", int):
-                if "deactivated" in js and js["deactivated"]:
-                    self.msg("^3SERVER WARNING^7! {}^7's account has been ^1DEACTIVATED^7 on qlstats.".format(player.name))
-                if not self.get_cvar("qlx_pinfo_display_auto", int):
+            if "deactivated" in js and js["deactivated"]:
+
+                # If we notice deactivated, ban player (auto or cmd initiated)
+                if self.get_cvar("qlx_pinfo_ban_deactivated", int):
+                    self.ban_deactivated(player)
                     return
+
+                elif self.get_cvar("qlx_pinfo_show_deactivated", int):
+                    self.msg("^3SERVER WARNING^7! {}^7's account has been ^1DEACTIVATED^7 on qlstats.".format(player.name))
+
+            # if we came here from a connect trigger, for a server that doesnt want auto info, return
+            if not channel and not self.get_cvar("qlx_pinfo_display_auto", int):
+                return
 
             if not channel:
                 channel = minqlx.CHAT_CHANNEL
@@ -257,4 +280,23 @@ class player_info(iouonegirlPlugin):
         info.append("^3{} ^7{}ELO: ^6{}^7".format(self.game.type_short.upper(),'b' if self.get_cvar('qlx_balanceApi') == 'elo_b' else '', elo, games))
 
         return channel.reply("^6{}^7: ".format(name) + "^7, ".join(info) + "^7.")
+
+    @minqlx.delay(2)
+    def ban_deactivated(self, player):
+        try:
+            td = datetime.timedelta(weeks=1)
+            now = datetime.datetime.now().strftime(TIME_FORMAT)
+            expires = (datetime.datetime.now() + td).strftime(TIME_FORMAT)
+            base_key = PLAYER_KEY.format(ident) + ":bans"
+            ban_id = self.db.zcard(base_key)
+            db = self.db.pipeline()
+            db.zadd(base_key, time.time() + td.total_seconds(), ban_id)
+            ban = {"expires": expires, "reason": "deactivated account", "issued": now, "issued_by": "player_info"}
+            db.hmset(base_key + ":{}".format(ban_id), ban)
+            db.execute()
+            self.kick(player.id, "banned from this server because of deactivated account.")
+        except:
+            n = player.name
+            self.kick(player.id, "kicked because of deactivated account.")
+            self.msg("{} has been kicked, but could not be banned. Contact iouonegirl".format(n))
 
