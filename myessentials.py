@@ -52,7 +52,7 @@ except:
         minqlx.CHAT_CHANNEL.reply("^1iouonegirl abstract plugin download failed^7: {}".format(e))
         raise
 
-VERSION = "v0.11"
+VERSION = "v0.11.1"
 
 class myessentials(iouonegirlPlugin):
     database = minqlx.database.Redis
@@ -407,9 +407,11 @@ class myessentials(iouonegirlPlugin):
             return minqlx.RET_STOP_EVENT
 
         if len(msg) > 2:
-            target_player.kick(" ".join(msg[2:]))
+            self.after_command(lambda:
+            target_player.kick(" ".join(msg[2:])))
         else:
-            target_player.kick()
+            self.after_command(lambda:
+            target_player.kick())
 
     def cmd_kickban(self, player, msg, channel):
         """Kicks a player and prevent the player from joining for the remainder of the map."""
@@ -420,7 +422,7 @@ class myessentials(iouonegirlPlugin):
         if not target_player:
             return minqlx.RET_STOP_EVENT
 
-        target_player.tempban()
+        self.after_command(lambda: target_player.tempban())
 
     def cmd_yes(self, player, msg, channel):
         """Passes the current vote."""
@@ -559,7 +561,8 @@ class myessentials(iouonegirlPlugin):
         if target_player == player:
             channel.reply("I refuse.")
         else:
-            target_player.mute()
+            self.after_command(lambda:
+            target_player.mute())
 
     def cmd_unmute(self, player, msg, channel):
         """Mute a player."""
@@ -576,31 +579,31 @@ class myessentials(iouonegirlPlugin):
         """Lock a team."""
         if len(msg) > 1:
             if msg[1][0].lower() == "s":
-                self.lock("spectator")
+                self.after_command(lambda: self.lock("spectator"))
             elif msg[1][0].lower() == "r":
-                self.lock("red")
+                self.after_command(lambda: self.lock("red"))
             elif msg[1][0].lower() == "b":
-                self.lock("blue")
+                self.after_command(lambda: self.lock("blue"))
             else:
                 player.tell("Invalid team.")
                 return minqlx.RET_STOP_ALL
         else:
-            self.lock()
+            self.after_command(lambda: self.lock())
 
     def cmd_unlock(self, player, msg, channel):
         """Unlock a team."""
         if len(msg) > 1:
             if msg[1][0].lower() == "s":
-                self.unlock("spectator")
+                self.after_command(lambda: self.unlock("spectator"))
             elif msg[1][0].lower() == "r":
-                self.unlock("red")
+                self.after_command(lambda: self.unlock("red"))
             elif msg[1][0].lower() == "b":
-                self.unlock("blue")
+                self.after_command(lambda: self.unlock("blue"))
             else:
                 player.tell("Invalid team.")
                 return minqlx.RET_STOP_ALL
         else:
-            self.unlock()
+            self.after_command(lambda: self.unlock())
 
     def cmd_allready(self, player, msg, channel):
         """Forces all players to ready up."""
@@ -695,23 +698,33 @@ class myessentials(iouonegirlPlugin):
         """Responds with the current time."""
         tz_offset = time.timezone if (time.localtime().tm_isdst == 0) else time.altzone
         tz_offset = tz_offset // 60 // 60 * -1
-        if len(msg) > 1:
-            try:
-                tz_offset = int(msg[1])
-            except ValueError:
-                channel.reply("Unintelligible time zone offset.")
-                return
         tz = datetime.timezone(offset=datetime.timedelta(hours=tz_offset))
         now = datetime.datetime.now(tz)
+
+        if len(msg) > 1:
+
+            try:
+                tz_offset = int(msg[1])
+                tz = datetime.timezone(offset=datetime.timedelta(hours=tz_offset))
+                now = datetime.datetime.now(tz)
+            except ValueError:
+                self.after_command(lambda:
+                channel.reply("Unintelligible time zone offset."))
+                return
+
         if tz_offset > 0:
+            self.after_command(lambda:
             channel.reply("The current time is: ^6{} UTC+{}"
-                .format(now.strftime(TIME_FORMAT), tz_offset))
+                .format(now.strftime(TIME_FORMAT), tz_offset)))
         elif tz_offset < 0:
-            channel.reply("The current time is: ^6{} UTC{}"
-                .format(now.strftime(TIME_FORMAT), tz_offset))
+            self.after_command(lambda:
+                channel.reply("The current time is: ^6{} UTC{}"
+                .format(now.strftime(TIME_FORMAT), tz_offset)))
         else:
+            self.after_command(lambda:
             channel.reply("The current time is: ^6{} UTC"
-                .format(now.strftime(TIME_FORMAT)))
+                .format(now.strftime(TIME_FORMAT))))
+
 
     def cmd_teamsize(self, player, msg, channel):
         """Calls a teamsize vote and passes it immediately."""
@@ -831,4 +844,6 @@ class myessentials(iouonegirlPlugin):
                 .format(" " * indent, m, ", ".join(val for val in self.mappool[m])))
         player.tell(out.rstrip("\n"))
 
+    @minqlx.delay(0.1)
+    def after_command(self, func): func()
 
