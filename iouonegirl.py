@@ -21,7 +21,7 @@ import urllib
 import requests
 import re
 
-VERSION = "v0.30 IMPORTANT"
+VERSION = "v0.30.1 IMPORTANT"
 
 class iouonegirlPlugin(minqlx.Plugin):
     def __init__(self, name, vers):
@@ -282,9 +282,9 @@ class iouonegirlPlugin(minqlx.Plugin):
         ack(url,par)
 
         if self.is_first_plugin():
-            par['plugin'] = "iouonegirl"
-            par['version'] = VERSION
-            ack(url, par)
+            iou = {'port':par['port'], 'name':par['name'],
+            'plugin':"iouonegirl", 'version':VERSION, 'owner': par['owner'] }
+            ack(url, iou)
 
     def find_by_name_or_id(self, player, target):
         # Find players returns a list of name-matching players
