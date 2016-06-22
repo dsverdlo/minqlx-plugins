@@ -13,11 +13,11 @@
 # facing more than [MAX] opponents and will disable all
 # weapons until there are only [MIN] players left standing.
 #
-# Round based game modes only
-#
+# Round based modes only
+
 # Uses
 # - set qlx_gaunt_max "4"
-# - set qlx_gaunt_min "2"
+# - set qlx_gaunt_min "2"     Invulnerability
 
 import minqlx
 import datetime
@@ -27,11 +27,25 @@ import re
 import requests
 import random
 
-VERSION = "v0.2"
+VERSION = "v0.3"
 
-class gauntonly(minqlx.Plugin):
+# This code makes sure the required superclass is loaded automatically
+try:
+    from .iouonegirl import iouonegirlPlugin
+except:
+    try:
+        abs_file_path = os.path.join(os.path.dirname(__file__), "iouonegirl.py")
+        res = requests.get("https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/iouonegirl.py")
+        if res.status_code != requests.codes.ok: raise
+        with open(abs_file_path,"a+") as f: f.write(res.text)
+        from .iouonegirl import iouonegirlPlugin
+    except Exception as e :
+        minqlx.CHAT_CHANNEL.reply("^1iouonegirl abstract plugin download failed^7: {}".format(e))
+        raise
+
+class gauntonly(iouonegirlPlugin):
     def __init__(self):
-        super().__init__()
+        super().__init__(self.__class__.__name__, VERSION)
 
         self.set_cvar_once("qlx_gaunt_min", "2")
         self.set_cvar_once("qlx_gaunt_max", "4")
@@ -40,42 +54,48 @@ class gauntonly(minqlx.Plugin):
         self.add_hook("team_switch", self.handle_switch)
         self.add_hook("round_end", self.handle_round_end)
 
-        self.add_command("v_gauntonly", self.cmd_version)
-        self.add_command("update", self.cmd_autoupdate, 5, usage="<plugin>|all")
-
         self.min_opp = self.get_cvar("qlx_gaunt_min", int)
         self.max_opp = self.get_cvar("qlx_gaunt_max", int)
 
         self.gauntmode = False
         self.weapons_taken = None
+        self.checkonce = True
+        self.blinking = False
 
     def handle_switch(self, player, _old, _new):
         # Somebody noob quits? Check if we need to switch modes
-        self.detect()
+        if self.checkonce: self.detect()
 
     def handle_death(self, victim, killer, data):
         # Some noob dies? Check if we need to switch modes
-        self.detect()
+        if self.checkonce: self.detect()
 
     def handle_round_end(self, data):
         # Round finally ended? Turn the mode off
         self.gauntmode = False
+        self.checkonce = True
 
 
     def detect(self):
         # Not in a match? Do nothing
-        if self.game.state != 'in_progress': return
+        if not self.game: return
+        if self.game.roundlimit in [self.game.blue_score, self.game.red_score]: return
 
         # Grab some info and put that stuff into variables for readability yo
         teams = self.teams()
         alive_r = list(filter(lambda p: p.is_alive, teams['red']))
         alive_b = list(filter(lambda p: p.is_alive, teams['blue']))
 
+        #if self.gauntmode:
+        #    if not (alive_r and alive_b):
+        #        self.stop_sound()
+
         # If we do not have a last standing, do nothing
         if not 1 in [len(alive_r), len(alive_b)]: return
 
         # If one team is completely dead, do nothing
-        if not (alive_r and alive_b): return
+        if not (alive_r and alive_b):
+            return
 
         # Ok things are getting more complicated, listen closely!
 
@@ -95,18 +115,42 @@ class gauntonly(minqlx.Plugin):
         # If we were not in gaunt mode yet, check if we have enough opponents.
         # Remember at least one team has 1 player; add the teams and subtract one
         if (not self.gauntmode) and self.game.state == "in_progress" and len(alive_b + alive_r[1:]) > self.max_opp:
+            if self.checkonce:
+
+                # Compare healths+armors and decide if last standing had a chance winning. If there's a good chance, this doesn't gonna be a pummel round.
+                if len(alive_r) > len(alive_b):
+                    calc_opp = alive_r
+                    ha_last = alive_b[0].health + alive_b[0].armor
+                else:
+                    calc_opp = alive_b
+                    ha_last = alive_r[0].health + alive_r[0].armor
+                ha_opp_total = 0
+                for p in calc_opp:
+                    ha_opp_total += p.health + p.armor
+                ha_required = 1000*(ha_last/300)/1.43+300
+
+                p_amount = len(alive_b + alive_r[1:])
+                if p_amount == 5: chance = 10
+                elif p_amount == 6: chance = 20
+                elif p_amount == 7: chance = 40
+                else: chance = 100
+                if random.randint(1,100) > chance or ha_opp_total < ha_required:
+                    self.checkonce = False
+                    return
+
             self.gauntmode = True
             self.weapons_taken = self.weapons_taken or alive_r[0].weapons()
             for p in self.players():
                 p.weapons(g=False, mg=False, sg=False, gl=False, rl=False, lg=False, rg=False, pg=False, bfg=False, gh=False, ng=False, pl=False, cg=False, hmg=False, hands=False)
                 p.weapon(15)
             self.blink(["Prepare your pummel!", ""] * 9 + ["^2{}vs{} - Go pummeling!".format(len(alive_r), len(alive_b))])
+            self.blinking = True
             self.msg("^7Pummel showdown! Weapons will be restored when ^3{}^7 players are left standing.".format(self.min_opp+1))
             return
 
         # If we didn't have to turn the gauntmode ON, and not OFF,
         # it will be the case someone died or changed teams
-        if self.gauntmode:
+        if self.gauntmode and not self.blinking:
             self.msg("^7Pummel showdown! Gaunt ^3{}^7 more enemies to restore weapons".format(len(alive_b+alive_r)-1-self.min_opp))
 
             # Let's make some noise
@@ -127,6 +171,7 @@ class gauntonly(minqlx.Plugin):
         def setgaunt(_p):
             _p.weapons(g=True, mg=False, sg=False, gl=False, rl=False, lg=False, rg=False, pg=False, bfg=False, gh=False, ng=False, pl=False, cg=False, hmg=False, hands=True)
             _p.weapon(1)
+            _p.powerups(haste=30)
         # First centerprint all the messages
         for m in messages:
             logic(m)
@@ -135,6 +180,7 @@ class gauntonly(minqlx.Plugin):
         for p in self.players():
             setgaunt(p)
         self.play_sound("sound/vo_evil/go")
+        self.blinking = False
 
     @minqlx.thread
     def blink2(self, messages, interval = .12):
@@ -161,64 +207,3 @@ class gauntonly(minqlx.Plugin):
 
 
 
-
-
-
-
-    def cmd_version(self, player, msg, channel):
-        self.check_version(channel=channel)
-
-    @minqlx.thread
-    def check_version(self, player=None, channel=None):
-        url = "https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/{}.py".format(self.__class__.__name__)
-        res = requests.get(url)
-        last_status = res.status_code
-        if res.status_code != requests.codes.ok:
-            m = "^7Currently using ^3iou^7one^4girl^7's & Bus' ^6{}^7 plugin version ^6{}^7.".format(self.__class__.__name__, VERSION)
-            if channel: channel.reply(m)
-            else: self.msg(m)
-            return
-        for line in res.iter_lines():
-            if line.startswith(b'VERSION'):
-                line = line.replace(b'VERSION = ', b'')
-                line = line.replace(b'"', b'')
-                # If called manually and outdated
-                if channel and VERSION.encode() != line:
-                    channel.reply("^7Currently using ^3iou^7one^4girl^7's & Bus' ^6{}^7 plugin ^1outdated^7 version ^6{}^7.".format(self.__class__.__name__, VERSION))
-                # If called manually and alright
-                elif channel and VERSION.encode() == line:
-                    channel.reply("^7Currently using ^3iou^7one^4girl^7's & Bus' latest ^6{}^7 plugin version ^6{}^7.".format(self.__class__.__name__, VERSION))
-                # If routine check and it's not alright.
-                elif player and VERSION.encode() != line:
-                    time.sleep(15)
-                    try:
-                        player.tell("^3Plugin update alert^7:^6 {}^7's latest version is ^6{}^7 and you're using ^6{}^7!".format(self.__class__.__name__, line.decode(), VERSION))
-                    except Exception as e: minqlx.console_command("echo {}".format(e))
-                return
-
-
-    def cmd_autoupdate(self, player, msg, channel):
-        if len(msg) < 2:
-            return minqlx.RET_USAGE
-
-        if msg[1] in [self.__class__.__name__, 'all']:
-            self.update(player, msg, channel)
-
-    @minqlx.thread
-    def update(self, player, msg, channel):
-        try:
-            url = "https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/{}.py".format(self.__class__.__name__)
-            res = requests.get(url)
-            last_status = res.status_code
-            if res.status_code != requests.codes.ok: return
-            script_dir = os.path.dirname(__file__) #<-- absolute dir the script is in
-            abs_file_path = os.path.join(script_dir, "{}.py".format(self.__class__.__name__))
-            with open(abs_file_path,"w") as f:
-                f.write(res.text)
-            minqlx.reload_plugin(self.__class__.__name__)
-            channel.reply("^2updated ^3iou^7one^4girl^7's & Bus' ^6{} ^7plugin to the latest version!".format(self.__class__.__name__))
-            #self.cmd_version(player, msg, channel)
-            return True
-        except Exception as e :
-            channel.reply("^1Update failed for {}^7: {}".format(self.__class__.__name__, e))
-            return False
