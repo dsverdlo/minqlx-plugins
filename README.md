@@ -195,6 +195,6 @@ Furthermore this plugin uses a text file in which exceptions can be placed for t
 
 
 # **Donate**
-When minqlbot became popular and I found out we could write our own plugins, I saw an opportunity and a vision to put my coding skills to good use and improve the Quake Live gameplay experience. This hobby, as I would call it, kind of pays for its own in the sense that I feel like I have contributed something useful. As I see my plugins used and liked by so many players/servers, I find all the hours spent coding well worthwhile. Since some people asked, I will provide a donation link below for any of you generous people to use. Any donations given will be incredibly appreciated and be going straight towards keeping my motivation and creationism at its peak.
+When minqlbot became popular and I found out we could write our own plugins, I saw an opportunity and a vision to put my coding skills to good use and improve the Quake Live gameplay experience. This hobby, as I would call it, kind of pays for its own in the sense that I feel like I have contributed something useful. As I see my plugins used and liked by so many players/servers, I find all the hours spent coding well worthwhile. Since some people asked, I will provide a donation link below for any of you generous people to use. Any donations given will be incredibly appreciated and be going straight towards the necessary stuff that are keeping my motivation and creativity at its peak.
 
 [![paypal](https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif)](https://www.paypal.me/dsverdlo)
