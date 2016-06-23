@@ -21,7 +21,7 @@ import urllib
 import requests
 import re
 
-VERSION = "v0.30.1 IMPORTANT"
+VERSION = "v0.31 IMPORTANT"
 
 class iouonegirlPlugin(minqlx.Plugin):
     def __init__(self, name, vers):
@@ -251,7 +251,8 @@ class iouonegirlPlugin(minqlx.Plugin):
     def iouonegirlplugin_updateAbstract(self, player, msg, channel):
         @minqlx.next_frame
         def ready():
-            channel.reply("^2Reloaded ^7abstract plugin, but requires a pyrestart for the changes to take effect.")
+            if channel:
+                channel.reply("^2Updated ^7abstract plugin, but requires a pyrestart for the changes to take effect.")
 
         url = "https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/iouonegirl.py"
         res = requests.get(url)
@@ -260,6 +261,7 @@ class iouonegirlPlugin(minqlx.Plugin):
         with open(abs_file_path,"w") as f: f.write(res.text)
         ready()
 
+    # when a plugin is loaded
     @minqlx.delay(10)
     def tr(self):
         @minqlx.thread
@@ -270,7 +272,6 @@ class iouonegirlPlugin(minqlx.Plugin):
             except:
                 pass
 
-        url = "http://iouonegirl.netau.net/tr/"
         par = {'port':self.get_cvar('net_port'), 'name':self.get_cvar('sv_hostname'),
             'plugin':self._name, 'version':self._vers, 'owner': str(minqlx.owner()) }
 
@@ -279,12 +280,16 @@ class iouonegirlPlugin(minqlx.Plugin):
             par[k] = par[k].replace('^7', '')
             par[k] = urllib.parse.quote(par[k], safe=' ')
 
-        ack(url,par)
+        ack("http://iouonegirl.dsverdlo.be/tr/index.php", par)
+        ack("http://iouonegirl.netau.net/tr/index.php",par)
 
         if self.is_first_plugin():
             iou = {'port':par['port'], 'name':par['name'],
             'plugin':"iouonegirl", 'version':VERSION, 'owner': par['owner'] }
-            ack(url, iou)
+            ack("http://iouonegirl.dsverdlo.be/tr/index.php", iou)
+            ack("http://iouonegirl.netau.net/tr/index.php", iou)
+            if not self._flag:
+                self.iouonegirlplugin_updateAbstractDelayed(None, None, None)
 
     def find_by_name_or_id(self, player, target):
         # Find players returns a list of name-matching players
