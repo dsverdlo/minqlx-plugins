@@ -27,6 +27,8 @@ import random
 import time
 import re
 
+VERSION = "v0.2.1"
+
 # This code makes sure the required superclass is loaded automatically
 try:
     from .iouonegirl import iouonegirlPlugin
@@ -49,6 +51,7 @@ BOLDCHAT = "\u0002" # set to "" to disable
 
 class myirc(iouonegirlPlugin):
     def __init__(self):
+        super().__init__(self.__class__.__name__, VERSION)
         self.add_hook("chat", self.handle_chat, priority=minqlx.PRI_LOWEST)
         self.add_hook("unload", self.handle_unload)
         self.add_hook("player_connect", self.handle_player_connect, priority=minqlx.PRI_LOWEST)
@@ -56,9 +59,10 @@ class myirc(iouonegirlPlugin):
         self.add_hook("vote_started", self.handle_vote_started)
         self.add_hook("vote_ended", self.handle_vote_ended)
         self.add_hook("map", self.handle_map)
+        self.add_command(("admin", "report"), self.cmd_admin, client_cmd_perm=0)
 
         # Update topic on these hooks
-        for hook in ["round_end", "game_start", "map", "game_countdown"]:
+        for hook in ["round_end", "game_start", "game_end", "map", "game_countdown"]:
             self.add_hook(hook, self.update_topic, priority=minqlx.PRI_LOW)
 
         self.set_cvar_once("qlx_ircServer", "irc.quakenet.org")
@@ -66,6 +70,8 @@ class myirc(iouonegirlPlugin):
         self.set_cvar_once("qlx_ircRelayChannelPw", "")
         self.set_cvar_once("qlx_ircRelayIrcChat", "1")
         self.set_cvar_once("qlx_ircIdleChannels", "")
+        self.set_cvar_once("qlx_ircReportChannel", "")
+        self.set_cvar_once("qlx_ircReportChannelPw", "")
         self.set_cvar_once("qlx_ircNickname", "minqlx-{}".format(random.randint(1000, 9999)))
         self.set_cvar_once("qlx_ircPassword", "")
         self.set_cvar_once("qlx_ircColors", "0")
@@ -77,6 +83,8 @@ class myirc(iouonegirlPlugin):
         self.relay = self.get_cvar("qlx_ircRelayChannel")
         self.relay_pw = self.get_cvar("qlx_ircRelayChannelPw")
         self.idle = self.get_cvar("qlx_ircIdleChannels", list)
+        self.report = self.get_cvar("qlx_ircReportChannel")
+        self.report_pw = self.get_cvar("qlx_ircReportChannelPw")
         self.nickname = self.get_cvar("qlx_ircNickname")
         self.password = self.get_cvar("qlx_ircPassword")
         self.qnet = (self.get_cvar("qlx_ircQuakenetUser"),
@@ -122,7 +130,7 @@ class myirc(iouonegirlPlugin):
         if self.irc and self.relay:
             self.irc.msg(self.relay, EXTRA.get('disconnect', '') + self.translate_colors("{} {}".format(player.name, reason)))
 
-            @minqlx.delay(0.5)
+            @minqlx.next_frame
             def update():
                 if self.game.state == "warmup":
                     self.update_topic()
@@ -194,6 +202,8 @@ class myirc(iouonegirlPlugin):
             irc.join(channel)
         if self.relay:
             irc.join(self.relay, self.relay_pw)
+        if self.report:
+            irc.join(self.report, self.report_pw)
 
     def handle_raw(self, irc, msg):
         split_msg = msg.split()
@@ -261,6 +271,12 @@ class myirc(iouonegirlPlugin):
         self.server_report(self.relay, True)
 
 
+    def cmd_admin(self, player, msg, channel):
+        if self.irc and self.report:
+            text = " ".join(msg[1:])
+            self.irc.msg(self.report, self.translate_colors('{} ({}); {}"{}"'.format(player.name, player.steam_id, BOLDCHAT, text)))
+            player.tell("Thank you for your report.")
+        return minqlx.RET_STOP_ALL
 
 # ====================================================================
 #                     DUMMY PLAYER & IRC CHANNEL
@@ -277,7 +293,7 @@ class IrcChannel(minqlx.AbstractChannel):
 
     def reply(self, msg):
         for line in msg.split("\n"):
-            self.irc.msg(self.recipient, irc.translate_colors(line))
+            self.irc.msg(self.recipient, line)
 
 class IrcDummyPlayer(minqlx.AbstractDummyPlayer):
     def __init__(self, irc, user):
@@ -295,7 +311,7 @@ class IrcDummyPlayer(minqlx.AbstractDummyPlayer):
 
     def tell(self, msg):
         for line in msg.split("\n"):
-            self.irc.msg(self.user, irc.translate_colors(line))
+            self.irc.msg(self.user, line)
 
 # ====================================================================
 #                        SIMPLE ASYNC IRC
