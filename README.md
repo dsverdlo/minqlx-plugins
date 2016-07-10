@@ -29,6 +29,7 @@ I can usually be found on IRC (http://webchat.quakenet.org/?channels=minqlbot).
 [`mybalance`](https://github.com/dsverdlo/minqlx-plugins#mybalance)|Elo-limits, warmup reminders, team balancing for CA,TDM,CTF,FT.|[`raw`](https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/mybalance.py)
 [`myban`](https://github.com/dsverdlo/minqlx-plugins#myban)|Use the !ban command with a player's name instead of ID.|[`raw`](https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/myban.py)
 [`myessentials`](https://github.com/dsverdlo/minqlx-plugins#myessentials)|Use names with the essential commands, like !red iou, !mute iou, !kick iou, ...|[`raw`](https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/myessentials.py)
+[`myirc`](https://github.com/dsverdlo/minqlx-plugins#myirc)|Supports broadcasting to keyed(passworded) channels, shows more colors, and broadcasts live updates to the topic.|[`raw`](https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/myirc.py)
 [`player_info`](https://github.com/dsverdlo/minqlx-plugins#player_info)|Display some player information. Maybe upon player connect if you want.(Also gives a warning or a ban for deactivated qlstats accounts)|[`raw`](https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/player_info.py)
 [`railable`](https://github.com/dsverdlo/minqlx-plugins#railable)|Toggle to get a 'railable' message when your health drops too low.|[`raw`](https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/railable.py)
 [`translate`](https://github.com/dsverdlo/minqlx-plugins#translate)|Look up normal and urban definitions, translate works and sentences, translate last 3 things someone said.|[`raw`](https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/translate.py)
@@ -153,6 +154,16 @@ Furthermore this plugin uses a text file in which exceptions can be placed for t
   - ... all the same as the essentials plugin ...
 - NOTES
   - You don't have to remove the essentials plugin, the loading of myessentials will unload it automatically
+  
+# **myirc**
+- This plugin is an extension of Mino's original plugin, aimed to enhance it a little. It uses more colors/formatting to make messages clearder. MyIrc plugin can also connect and broadcast to/from passworded irc channels via a new cvar, and a live broadcast is shown in the topic.
+- (EXTRA) CVARS
+  - qlx_ircRelayChannelPw = ""
+- (EXTRA) IRC COMMANDS
+  - .topic - Grabs the latest server update and sets it as the topic
+- NOTES
+  - If the plugin is not changing the topic in the IRC channel, make sure it has the required privileges (+t)
+  - Preview: http://i.imgur.com/JyFsgjD.png
   
 # **player_info**
 - Displays some more info about a player if the info command is used, and also provides a method to check a player's scoreboard information (in big CA matches people sometimes fall off / just below the scoreboard)
