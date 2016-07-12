@@ -73,7 +73,7 @@ import re
 
 from minqlx.database import Redis
 
-VERSION = "v0.56.3"
+VERSION = "v0.56.4.1"
 
 
 # This code makes sure the required superclass is loaded automatically
@@ -621,6 +621,11 @@ class mybalance(iouonegirlPlugin):
 
 
     def handle_player_connect(self, player):
+
+        # If they joined very very very recently (like a short block from other plugins)
+        if player.steam_id in self.jointimes:
+            if (time.time() - self.jointimes[player.steam_id]) < 5: # dunno why 5s but should be enough
+                return
 
         # Record their join times regardless
         self.jointimes[player.steam_id] = time.time()
