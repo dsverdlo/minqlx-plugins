@@ -21,7 +21,7 @@ import urllib
 import requests
 import re
 
-VERSION = "v0.31 IMPORTANT"
+VERSION = "v0.32 IMPORTANT"
 
 class iouonegirlPlugin(minqlx.Plugin):
     def __init__(self, name, vers):
@@ -44,6 +44,7 @@ class iouonegirlPlugin(minqlx.Plugin):
         # these will be added with every subclass, so use RET_STOP in them
         self.add_command(("v_iouonegirlplugin", "v_iouonegirlPlugin", "v_iouonegirl"), self.iouonegirlplugin_cmd_myversion)
         self.add_command("update", self.iouonegirlplugin_cmd_autoupdate, 5, usage="<plugin>|all")
+        self.add_command("install", self.iouonegirlplugin_cmd_install, 5, usage="<plugin>")
         self.add_command("iouplugins", self.iouonegirlplugin_cmd_list)
         self.add_command("versions", self.iouonegirlplugin_cmd_versions)
         self.add_hook("player_connect", self.iouonegirlplugin_handle_player_connect)
@@ -140,6 +141,36 @@ class iouonegirlPlugin(minqlx.Plugin):
                             tell("^3Plugin update alert^7:^6 iouonegirl^7's latest version is ^6{}^7 and you're using ^6{}^7! ---> ^2!update iouonegirl".format(line.decode(), VERSION))
                         except Exception as e: minqlx.console_command("echo IouoneError: {}".format(e))
                 return
+
+
+    def iouonegirlplugin_cmd_install(self, player, msg, channel):
+        @minqlx.thread
+        def fetch(url):
+            try:
+                abs_file_path = os.path.join(os.path.dirname(__file__), "{}.py".format(msg))
+                res = requests.get(url)
+                if res.status_code != requests.codes.ok: raise
+                with open(abs_file_path,"a+") as f: f.write(res.text)
+                done()
+            except Exception as e:
+                fail(e)
+        @minqlx.next_frame
+        def done():
+            minqlx.reload_plugin(msg)
+            channel.reply("{} ^2succesfully ^7installed!".format(msg))
+
+        @minqlx.next_frame
+        def fail(e):
+            self.msg("{} plugin installation ^1failed^7: {}".format(msg, e))
+
+        if len(msg) < 2:
+            return minqlx.RET_USAGE
+
+        msg = msg[1].lower()
+
+        url = "https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/{}.py"
+        fetch(url.format(msg))
+        return minqlx.RET_STOP
 
     def iouonegirlplugin_cmd_autoupdate(self, player, msg, channel):
         if len(msg) < 2:
