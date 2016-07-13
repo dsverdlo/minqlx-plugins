@@ -17,6 +17,9 @@
 # - set qlx_pinfo_show_deactivated "1"
 #          ^ (If this is 1 then a warning will be shown of players who are deactivated on qlstats)
 # - set qlx_pinfo_ban_deactivated "0"
+# - set qlx_pinfo_ban_duration_weeks "1"
+#       ^ If ban_deactivated is "1", then this var will specify for how many weeks the ban will last
+#         (please only use integers (no decimals) here)
 
 import minqlx
 import requests
@@ -42,7 +45,7 @@ except:
         minqlx.CHAT_CHANNEL.reply("^1iouonegirl abstract plugin download failed^7: {}".format(e))
         raise
 
-VERSION = "v0.29"
+VERSION = "v0.30"
 
 PLAYER_KEY = "minqlx:players:{}"
 COMPLETED_KEY = PLAYER_KEY + ":games_completed"
@@ -68,6 +71,7 @@ class player_info(iouonegirlPlugin):
         self.set_cvar_once("qlx_pinfo_display_auto", "0")
         self.set_cvar_once("qlx_pinfo_show_deactivated", "1")
         self.set_cvar_once("qlx_pinfo_ban_deactivated", "0")
+        self.set_cvar_once("qlx_pinfo_ban_duration_weeks", "1")
 
         self.add_command("info", self.cmd_player_info,  usage="[<id>|<name>]")
         self.add_command("scoreboard", self.cmd_scoreboard, usage="[<id>|<name>]")
@@ -284,10 +288,11 @@ class player_info(iouonegirlPlugin):
     @minqlx.delay(2)
     def ban_deactivated(self, player):
         try:
-            td = datetime.timedelta(weeks=1)
+            duration = self.get_cvar("qlx_pinfo_ban_duration_weeks", int)
+            td = datetime.timedelta(weeks=duration)
             now = datetime.datetime.now().strftime(TIME_FORMAT)
             expires = (datetime.datetime.now() + td).strftime(TIME_FORMAT)
-            base_key = PLAYER_KEY.format(ident) + ":bans"
+            base_key = PLAYER_KEY.format(player.steam_id) + ":bans"
             ban_id = self.db.zcard(base_key)
             db = self.db.pipeline()
             db.zadd(base_key, time.time() + td.total_seconds(), ban_id)
