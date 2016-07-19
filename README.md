@@ -4,16 +4,10 @@ This repo will contain several plugins which I have developed for [Mino's minqlx
 
 Most ideas have been created, worked out and evaluated on <http://station.boards.net>, the official forum of the 'Bus Station' servers.
 
-If you wish to use my plugins, I'd really appreciate a small message, either via email, steam or on the forum. 
-This way the people who have worked so hard on them get some praise and we know which servers are using them.
-
-Creating an account on <http://station.boards.net> is advised if you want to follow updates on the plugins.
-Just as minqlx, these plugins are still in development and prone to small updates.
-
-You are free to change any variables and output messages in the file itself, but remember that the plugins are not 100% foolproof and unexpected behavior can occur. 
-If you notice such strange behavior on your server, please contact me about it. 
-This also goes for any advice or crazy ideas for new plugins you might have.
-I can usually be found on IRC (http://webchat.quakenet.org/?channels=minqlbot).
+Feel free to change variables and output messages in the files themselves, but this could introduce bugs if you don't really know what you're doing. As with most software, my plugins are not 100% foolproof and occasional unexpected behavior can occur. 
+If you would notice any unusual behavior resulting from an 'iouplugin' on your server, please contact me about it. 
+This also goes for any advice or crazy ideas for new plugins anyone might have.
+My email address can be found on github, and I can usually be found on the [Quakenet IRC](http://webchat.quakenet.org/?channels=minqlbot) channels #busstation, #iouonegirl, #minqlbot, #qldedsrv.
 
 # Plugin list:
 | Name | Short Description | Raw |
