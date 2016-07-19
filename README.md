@@ -4,17 +4,12 @@ This repo will contain several plugins which I have developed for [Mino's minqlx
 
 Most ideas have been created, worked out and evaluated on <http://station.boards.net>, the official forum of the 'Bus Station' servers.
 
-If you wish to use my plugins, I'd really appreciate a small message, either via email, steam or on the forum. 
-This way the people who have worked so hard on them get some praise and we know which servers are using them.
+Feel free to change variables and output messages in the files themselves, but this could introduce bugs if you don't really know what you're doing. As with most software, my plugins are not 100% foolproof and occasional unexpected behavior can occur. 
+If you would notice any unusual behavior resulting from an 'iouplugin' on your server, please contact me about it. 
+This also goes for any advice or crazy ideas for new plugins anyone might have.
+My email address can be found on github, and I can usually be found on the [Quakenet IRC](http://webchat.quakenet.org/?channels=minqlbot) channels #busstation, #iouonegirl, #minqlbot, #qldedsrv.
 
-Creating an account on <http://station.boards.net> is advised if you want to follow updates on the plugins.
-Just as minqlx, these plugins are still in development and prone to small updates.
-
-You are free to change any variables and output messages in the file itself, but remember that the plugins are not 100% foolproof and unexpected behavior can occur. 
-If you notice such strange behavior on your server, please contact me about it. 
-This also goes for any advice or crazy ideas for new plugins you might have.
-I can usually be found on IRC (http://webchat.quakenet.org/?channels=minqlbot).
-
+If you wish to donate, please find a little paragraph and paypal link [below](https://github.com/dsverdlo/minqlx-plugins#donate).
 # Plugin list:
 | Name | Short Description | Raw |
 | ---- | :---------------: | :-- |
@@ -55,7 +50,7 @@ I can usually be found on IRC (http://webchat.quakenet.org/?channels=minqlbot).
   - **Disclaimer:** The term 'rape' in this context is only used to describe an overpowered online player making the game unfair for others below his skill level. It is not meant in any way to offend or refer to the horrible crime that is also known under this name.
 
 # **auto_voice_switch**
-- This plugin is evaluated to be useless, since "g_allTalk 0" will automatically limit voice communication to team-only during a match. 
+- This plugin is evaluated to be useless, since "g_allTalk 0" will automatically limit voice communication to team-only during a match. Plugin has been removed.
 
 # **autospec**
 - Displays a message during round countdown if teams are uneven, and forces the person (of the largest team) with the lowest score to spectate. If there is a big difference between teams, players will be autom. moved over.
@@ -206,6 +201,6 @@ Furthermore this plugin uses a text file in which exceptions can be placed for t
 
 
 # **Donate**
-When minqlbot became popular and I found out we could write our own plugins, I saw an opportunity and a vision to put my coding skills to good use and improve the Quake Live gameplay experience. This hobby, as I would call it, kind of pays for its own in the sense that I feel like I have contributed something useful. As I see my plugins used and liked by so many players/servers, I find all the hours spent coding well worthwhile. Since some people asked, I will provide a donation link below for any of you generous people to use. Any donations given will be incredibly appreciated and be going straight towards the necessary stuff that are keeping my motivation and creativity at its peak.
+When minqlbot became popular and I found out we could write our own plugins, I saw an opportunity and a vision to put my coding skills to good use and try to improve the Quake Live gameplay experience. This hobby, as I would call it, somewhat pays for its own in the satisfaction I feel of having contributed something useful to my favorite game. As I see my plugins used and liked by so many players and servers, I find all the hours spent coding well worthwhile. Since some people asked, I will provide a donation link below for any of you generous people to use. Any donations given will be incredibly appreciated and will be going straight towards the necessary stuff that keeps my motivation and creativity at their peak. (Like coffee ^^)
 
 [![paypal](https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif)](https://www.paypal.me/dsverdlo)
