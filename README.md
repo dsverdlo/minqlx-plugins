@@ -55,7 +55,7 @@ I can usually be found on IRC (http://webchat.quakenet.org/?channels=minqlbot).
   - **Disclaimer:** The term 'rape' in this context is only used to describe an overpowered online player making the game unfair for others below his skill level. It is not meant in any way to offend or refer to the horrible crime that is also known under this name.
 
 # **auto_voice_switch**
-- This plugin is evaluated to be useless, since "g_allTalk 0" will automatically limit voice communication to team-only during a match. 
+- This plugin is evaluated to be useless, since "g_allTalk 0" will automatically limit voice communication to team-only during a match. Plugin has been removed.
 
 # **autospec**
 - Displays a message during round countdown if teams are uneven, and forces the person (of the largest team) with the lowest score to spectate. If there is a big difference between teams, players will be autom. moved over.
