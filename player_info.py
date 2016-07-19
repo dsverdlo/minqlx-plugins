@@ -45,7 +45,7 @@ except:
         minqlx.CHAT_CHANNEL.reply("^1iouonegirl abstract plugin download failed^7: {}".format(e))
         raise
 
-VERSION = "v0.30"
+VERSION = "v0.31"
 
 PLAYER_KEY = "minqlx:players:{}"
 COMPLETED_KEY = PLAYER_KEY + ":games_completed"
@@ -107,6 +107,12 @@ class player_info(iouonegirlPlugin):
             except:
                 target_player = self.find_by_name_or_id(player, msg[1])
                 if not target_player: return minqlx.RET_STOP_EVENT
+
+        # If there is a duel going on and a spec called the command,
+        # ensure that the playing players don't see it
+        if self.game.type == "duel" and self.game.state == "in_progress":
+            if player.team != "free":
+                channel = minqlx.SPECTATOR_CHAT_CHANNEL
 
         # go fetch his elo
         self.fetch(target_player, self.game.type_short, channel)
@@ -213,7 +219,10 @@ class player_info(iouonegirlPlugin):
                     return
 
                 elif self.get_cvar("qlx_pinfo_show_deactivated", int):
-                    self.msg("^3SERVER WARNING^7! {}^7's account has been ^1DEACTIVATED^7 on qlstats.".format(player.name))
+                    @minqlx.next_frame
+                    def warn():
+                        self.msg("^3SERVER WARNING^7! {}^7's account has been ^1DEACTIVATED^7 on qlstats.".format(player.name))
+                    warn()
 
             # if we came here from a connect trigger, for a server that doesnt want auto info, return
             if not channel and not self.get_cvar("qlx_pinfo_display_auto", int):
@@ -221,6 +230,7 @@ class player_info(iouonegirlPlugin):
 
             if not channel:
                 channel = minqlx.CHAT_CHANNEL
+
 
             for p in js["players"]:
                 _sid = int(p["steamid"])
@@ -253,6 +263,7 @@ class player_info(iouonegirlPlugin):
 
 
     def callback(self, target_player, elo, games, channel):
+
         try:
             ident = target_player.steam_id
             name = target_player.name
