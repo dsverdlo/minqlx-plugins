@@ -27,7 +27,7 @@ import random
 import time
 import re
 
-VERSION = "v0.2.1"
+VERSION = "v0.2.2"
 
 # This code makes sure the required superclass is loaded automatically
 try:
@@ -45,9 +45,11 @@ except:
 
 
 # Colors using the mIRC color standard palette (which several other clients also comply with).
+#          ^1 RED    ^2 GREEN  ^3 YLW    ^4 CYAN   ^5 BLUE   ^6 PURPLE ^7WHITE   ^8 BLACK?
 COLORS = ("\x0301", "\x0304", "\x0303", "\x0308", "\x0302", "\x0311", "\x0306", "\x0300")
 EXTRA = {'connect': "\u001d\x0314", 'disconnect': "\u001d\x0314", 'map': "\x0310", 'vote':"\x0306"}
 BOLDCHAT = "\u0002" # set to "" to disable
+FONTRESET = "\u000f"
 
 class myirc(iouonegirlPlugin):
     def __init__(self):
@@ -239,9 +241,9 @@ class myirc(iouonegirlPlugin):
             elif t == "free":
                 plist.append("Free: " + ", ".join([p.clean_name for p in teams["free"]]))
             elif t == "red":
-                plist.append("\x0304Red\x03: " + ", ".join([p.clean_name for p in teams["red"]]))
+                plist.append(BOLDCHAT + "\x0304Red"+FONTRESET+"\x03: " + ", ".join([p.clean_name for p in teams["red"]]))
             elif t == "blue":
-                plist.append("\x0302Blue\x03: " + ", ".join([p.clean_name for p in teams["blue"]]))
+                plist.append(BOLDCHAT + "\x0302Blue"+FONTRESET+"\x03: " + ", ".join([p.clean_name for p in teams["blue"]]))
             elif t == "spectator":
                 plist.append("\x02Spec\x02: " + ", ".join([p.clean_name for p in teams["spectator"]]))
 
