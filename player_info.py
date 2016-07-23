@@ -45,7 +45,7 @@ except:
         minqlx.CHAT_CHANNEL.reply("^1iouonegirl abstract plugin download failed^7: {}".format(e))
         raise
 
-VERSION = "v0.31"
+VERSION = "v0.32"
 
 PLAYER_KEY = "minqlx:players:{}"
 COMPLETED_KEY = PLAYER_KEY + ":games_completed"
@@ -110,7 +110,7 @@ class player_info(iouonegirlPlugin):
 
         # If there is a duel going on and a spec called the command,
         # ensure that the playing players don't see it
-        if self.game.type == "duel" and self.game.state == "in_progress":
+        if self.game.type_short == "duel" and self.game.state == "in_progress":
             if player.team != "free":
                 channel = minqlx.SPECTATOR_CHAT_CHANNEL
 
