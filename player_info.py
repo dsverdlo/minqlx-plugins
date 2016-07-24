@@ -45,7 +45,7 @@ except:
         minqlx.CHAT_CHANNEL.reply("^1iouonegirl abstract plugin download failed^7: {}".format(e))
         raise
 
-VERSION = "v0.32"
+VERSION = "v0.33"
 
 PLAYER_KEY = "minqlx:players:{}"
 COMPLETED_KEY = PLAYER_KEY + ":games_completed"
@@ -230,6 +230,8 @@ class player_info(iouonegirlPlugin):
 
             if not channel:
                 channel = minqlx.CHAT_CHANNEL
+                if self.game.state == "in_progress":
+                    channel = minqlx.SPECTATOR_CHAT_CHANNEL
 
 
             for p in js["players"]:
