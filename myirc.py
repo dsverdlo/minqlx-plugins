@@ -16,6 +16,10 @@
 # You should have received a copy of the GNU General Public License
 # along with minqlx. If not, see <http://www.gnu.org/licenses/>.
 
+# Edited by iouonegirl to show different colors, broadcast more channels
+# like red_team, blue_team, free_team, spec_team chat (thanks b1ngo)
+# also updates the topic of an irc channel with LIVE updates
+
 import minqlx
 import threading
 import asyncio
@@ -27,7 +31,7 @@ import random
 import time
 import re
 
-VERSION = "v0.2.2"
+VERSION = "v0.2.3"
 
 # This code makes sure the required superclass is loaded automatically
 try:
@@ -45,11 +49,11 @@ except:
 
 
 # Colors using the mIRC color standard palette (which several other clients also comply with).
-#          ^1 RED    ^2 GREEN  ^3 YLW    ^4 CYAN   ^5 BLUE   ^6 PURPLE ^7WHITE   ^8 BLACK?
+#          ^0 Black  ^1 RED    ^2 GREEN  ^3 YLW    ^4 BLUE   ^5 CYAN   ^6 PURPLE ^7WHITE
 COLORS = ("\x0301", "\x0304", "\x0303", "\x0308", "\x0302", "\x0311", "\x0306", "\x0300")
 EXTRA = {'connect': "\u001d\x0314", 'disconnect': "\u001d\x0314", 'map': "\x0310", 'vote':"\x0306"}
-BOLDCHAT = "\u0002" # set to "" to disable
-FONTRESET = "\u000f"
+BOLDCHAT = "\x02" # set to "" to disable
+FONTRESET = "\x0f"
 
 class myirc(iouonegirlPlugin):
     def __init__(self):
@@ -110,9 +114,17 @@ class myirc(iouonegirlPlugin):
         self.update_topic()
 
     def handle_chat(self, player, msg, channel):
-        if self.irc and self.relay and channel == "chat":
-            text = "^7<{}> {}^2{}".format(player.name, BOLDCHAT, msg)
+        handled_channels = {"chat": [COLORS[2], ""],
+                    "red_team_chat": [COLORS[1], ""],
+                    "blue_team_chat": [COLORS[4], ""],
+                    "spectator_chat": ["\x0310", "(spec)"]} # teal
+        team_color = {"red": COLORS[1], "blue": COLORS[4], "spec": "\x0301", "free":COLORS[2]}
+
+        if self.irc and self.relay and channel.name in handled_channels:
+            color, label = handled_channels[channel.name]
+            text = "<{tc}{p}{tc}{l}> {c}{b}{m}{b}{c}".format(tc=team_color.get(player.team, "\x0301"), c=color,p=player.name, l=label, m=msg, b=BOLDCHAT)
             self.irc.msg(self.relay, self.translate_colors(text))
+
 
     def handle_unload(self, plugin):
         if plugin == self.__class__.__name__ and self.irc and self.irc.is_alive():
@@ -132,11 +144,9 @@ class myirc(iouonegirlPlugin):
         if self.irc and self.relay:
             self.irc.msg(self.relay, EXTRA.get('disconnect', '') + self.translate_colors("{} {}".format(player.name, reason)))
 
-            @minqlx.next_frame
-            def update():
-                if self.game.state == "warmup":
-                    self.update_topic()
-            update()
+            if self.game.state == "warmup":
+                self.update_topic()
+
 
     def handle_vote_started(self, caller, vote, args):
         if self.irc and self.relay:
@@ -263,7 +273,7 @@ class myirc(iouonegirlPlugin):
             game.type_short.upper(), len(players), self.get_cvar("sv_maxClients"))
 
         if topic:
-            self.irc.msg('Q', "SETTOPIC {} {}\r\n".format(self.relay, self.topic.format(ginfo_format)))
+            self.irc.topic(self.relay, self.topic.format(ginfo_format))
             return
 
         self.irc.msg(channel, ginfo_format)
@@ -436,3 +446,6 @@ class SimpleAsyncIrc(threading.Thread):
 
     def pong(self, n):
         self.write("PONG :{}\r\n".format(n))
+
+    def topic(self, channel, newtopic):
+        self.write("TOPIC {} : {}\r\n".format(channel, newtopic))
