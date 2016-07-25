@@ -291,11 +291,11 @@ class sets(iouonegirlPlugin):
             if self.game.state == "in_progress":
                 played = aset.games_played()
                 reserved = aset.reserved()
-                player.tell("^5Hello {}! Current players are playing game {} of a set of {}.".format(player.name, played+1, reserved))
+                player.tell("^5Hello {}^5! Current players are playing game {} of a set of {}.".format(player.name, played+1, reserved))
                 player.center_print("Players are currently in a set ({}/{})".format(played+1, reserved))
             else:
                 nmore = aset.reserved() - aset.games_played()
-                player.tell("^5Hello {}! Current players will be playing {} more games in their set.".format(player.name, nmore))
+                player.tell("^5Hello {}^5! Current players will be playing {} more games in their set.".format(player.name, nmore))
                 player.center_print("Players will play {} more games in their set.".format(nmore))
 
             player.tell("^5You can stay and watch, but you won't be able to play until they are done.")
@@ -310,7 +310,7 @@ class sets(iouonegirlPlugin):
             if player.steam_id in aset.players():
                 winner = aset._p1 if player.steam_id == aset._p2 else aset._p2
                 aset.terminate(player.steam_id)
-                self.msg("^4Set of {}^7: Player {} disconnected, terminating the set. Winner: {}".format(aset._matches, player.name, self.player(winner).name))
+                self.msg("^4Set of {}^7: Player {}^7 disconnected, terminating the set. Winner: {}".format(aset._matches, player.name, self.player(winner).name))
 
     @minqlx.delay(1)
     def handle_game_countdown(self):
@@ -569,7 +569,7 @@ class sets(iouonegirlPlugin):
                 self._id_to_pass_vote.append(t[1].steam_id)
             else:
                 self._id_to_pass_vote.append(t[0].steam_id)
-            self.callvote("qlx !startset {} {} {}".format(t[0].steam_id, t[1].steam_id, n), "Set of {} games for {} and {}".format(n, t[0].name, t[1].name))
+            self.callvote("qlx !startset {} {} {}".format(t[0].steam_id, t[1].steam_id, n), "Set of {} games for {}^3 and {}^3".format(n, t[0].name, t[1].name))
 
     def cmd_start_set(self, player, msg, channel):
         if self.stop(): return
