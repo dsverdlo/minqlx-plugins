@@ -107,7 +107,7 @@ Furthermore this plugin uses a text file in which exceptions can be placed for t
 - CVARS
   - qlx_elo_limit_min "0"
   - qlx_elo_limit_max "1600" (set to 9999 or something to have no real upper limit)
-  - qlx_elo_games_needed "10"
+  - qlx_elo_games_needed "10" (games needed before skill restriction is aplied) 
   - qlx_mybalance_perm_allowed "2" (players with this perm-level will always be allowed)
   - qlx_mybalance_autoshuffle "0" (set "1" if you want an automatic shuffle before every match)
   - qlx_mybalance_exclude "0" (set "1" if you want to kick players who don't have enough info/games)
