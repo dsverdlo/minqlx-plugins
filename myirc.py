@@ -377,9 +377,9 @@ class SimpleAsyncIrc(threading.Thread):
         self._old_nickname = self.nickname
         
         # support for ident server oidentd 
-        self.ident        = ident if ident else nickname
-        self.ifile_buf    = None
-        self.flock        = FLock(LOCKFILE)
+        self.idnt       = ident if ident else nickname
+        self.ifile_buf  = None
+        self.flock      = FLock(LOCKFILE)
 
     def run(self):
         loop = asyncio.new_event_loop()
@@ -499,7 +499,7 @@ class SimpleAsyncIrc(threading.Thread):
             with open(IDENTFILE, 'r') as ifile:
                 self.ifile_buf = ifile.readlines()
             with open(IDENTFILE, 'w') as ifile:
-                ifile.write(IDENTFMT.format(self.ident))
+                ifile.write(IDENTFMT.format(self.idnt))
         except Exception:
             minqlx.log_exception()
           
