@@ -30,6 +30,7 @@ import os
 import random
 import time
 import re
+import fcntl
 
 VERSION = "v0.2.3"
 
@@ -326,14 +327,39 @@ class IrcDummyPlayer(minqlx.AbstractDummyPlayer):
             self.irc.msg(self.user, line)
 
 # ====================================================================
+#                       SIMPLE INTERPROCESS LOCK
+# ====================================================================
+
+class FLock:
+    """Simple(st) filelock to provide interprocess syncronisation featuring fcntl."""   
+    def __init__(self, filename):
+        self.filename = filename
+        self.handle   = open(filename, 'w')
+
+    def acquire(self):
+        """Acquire the lock."""
+        fcntl.flock(self.handle, fcntl.LOCK_EX)
+        
+    def release(self):
+        """Release the lock."""
+        fcntl.flock(self.handle, fcntl.LOCK_UN)
+        
+    def __del__(self):
+        self.handle.close()
+
+# ====================================================================
 #                        SIMPLE ASYNC IRC
 # ====================================================================
 
 re_msg = re.compile(r"^:([^ ]+) PRIVMSG ([^ ]+) :(.*)$")
 re_user = re.compile(r"^(.+)!(.+)@(.+)$")
 
+IDENTFILE = os.path.join(os.environ["HOME"], ".oidentd.conf")
+IDENTFMT  = 'global {{ reply "{}" }}'
+LOCKFILE  = "/tmp/ident.lock"
+
 class SimpleAsyncIrc(threading.Thread):
-    def __init__(self, address, nickname, msg_handler, perform_handler, raw_handler=None, stop_event=threading.Event()):
+    def __init__(self, address, nickname, msg_handler, perform_handler, raw_handler=None, stop_event=threading.Event(), ident=None):
         split_addr = address.split(":")
         self.host = split_addr[0]
         self.port = int(split_addr[1]) if len(split_addr) > 1 else 6667
@@ -349,6 +375,11 @@ class SimpleAsyncIrc(threading.Thread):
 
         self._lock = threading.Lock()
         self._old_nickname = self.nickname
+        
+        # support for ident server oidentd 
+        self.ident        = ident if ident else nickname
+        self.ifile_buf    = None
+        self.flock        = FLock(LOCKFILE)
 
     def run(self):
         loop = asyncio.new_event_loop()
@@ -375,6 +406,9 @@ class SimpleAsyncIrc(threading.Thread):
 
     @asyncio.coroutine
     def connect(self):
+        # Tell oidentd our 'self.ident' before connecting
+        self.writeIdentFile()
+        
         self.reader, self.writer = yield from asyncio.open_connection(self.host, self.port)
         self.write("NICK {0}\r\nUSER {0} 0 * :{0}\r\n".format(self.nickname))
 
@@ -410,6 +444,8 @@ class SimpleAsyncIrc(threading.Thread):
                     self.server_options[opt_pair[0]] = ""
                 else:
                     self.server_options[opt_pair[0]] = opt_pair[1]
+            # We're connected, restore the ident file
+            self.restoreIdentFile()
         elif len(split_msg) > 1 and split_msg[1] == "433":
             self.nickname = self._old_nickname
         # Stuff to do after we get the MOTD.
@@ -449,3 +485,35 @@ class SimpleAsyncIrc(threading.Thread):
 
     def topic(self, channel, newtopic):
         self.write("TOPIC {} : {}\r\n".format(channel, newtopic))
+    
+    def writeIdentFile(self):
+        """Write self.ident to oidentd's user cfg file but
+        keep any entries for restoring them later."""
+
+        if not os.path.isfile(IDENTFILE):
+            return
+        
+        # In the process of connecting, acquire the lock 
+        self.flock.acquire()
+        try:
+            with open(IDENTFILE, 'r') as ifile:
+                self.ifile_buf = ifile.readlines()
+            with open(IDENTFILE, 'w') as ifile:
+                ifile.write(IDENTFMT.format(self.ident))
+        except Exception:
+            minqlx.log_exception()
+          
+    def restoreIdentFile(self):
+        """Restore the identfile."""
+        if not os.path.isfile(IDENTFILE):
+            return
+        
+        try:
+            with open(IDENTFILE, 'w') as ifile:
+                for l in self.ifile_buf:
+                    ifile.write(l)
+        except Exception:
+            minqlx.log_exception()
+        # We're done, release the lock so other 
+        # minqlx-plugins can do the same
+        self.flock.release()
