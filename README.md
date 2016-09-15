@@ -151,11 +151,13 @@ Furthermore this plugin uses a text file in which exceptions can be placed for t
   - You don't have to remove the essentials plugin, the loading of myessentials will unload it automatically
   
 # **myirc**
-- This plugin is an extension of Mino's original plugin, aimed to enhance it a little. It uses more colors/formatting to make messages clearder. MyIrc plugin can also connect and broadcast to/from passworded irc channels via a new cvar, and a live broadcast is shown in the topic.
+- This plugin is an extension of Mino's original plugin, aimed to enhance it a little. It uses more colors/formatting to make messages clearer. MyIrc plugin can also connect and broadcast to/from passworded irc channels via a new cvar, and a live broadcast is shown in the topic.
 - (EXTRA) CVARS
   - qlx_ircRelayChannelPw = ""
 - (EXTRA) IRC COMMANDS
   - .topic - Grabs the latest server update and sets it as the topic
+- (EXTRA) OIDENTD
+  - Support for ident-server oidentd. Each qlds running myirc.py can have its unique ident. Quakenet requires to apply for a trust if people want more than 5 clients from the same ip, a working ident server is among their conditions. See [`here`](https://www.quakenet.org/help/trusts/connection-limit). Example for oidentd base config [`/etc/oidentd.conf`](https://gist.github.com/mattiZed/78d4d0d21c035c73efdff4f1af2040f6)  
 - NOTES
   - If the plugin is not changing the topic in the IRC channel, make sure it has the required privileges (+t)
   - Preview: http://i.imgur.com/JyFsgjD.png
