@@ -32,7 +32,7 @@ import time
 import re
 import fcntl
 
-VERSION = "v0.2.3"
+VERSION = "v0.2.4"
 
 # This code makes sure the required superclass is loaded automatically
 try:
