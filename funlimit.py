@@ -20,7 +20,7 @@ import time
 import os
 import requests
 
-VERSION = "v0.1.1"
+VERSION = "v0.1.2"
 
 # This code makes sure the required superclass is loaded automatically
 try:
@@ -70,7 +70,7 @@ class funlimit(iouonegirlPlugin):
     def handle_round_start(self, roundnumber):
         self.disable_sounds()
 
-    def handle_game_start(self, data):
+    def handle_game_start(self, data=None): # works on countdown now
         # Don't disable yet for round-based gametypes (rounds will do it)
         if self.game and self.game.type_short in ['ca', 'ft', 'ad']: return
         self.disable_sounds()
