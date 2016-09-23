@@ -1,4 +1,4 @@
-﻿# This is a plugin created by iouonegirl(@gmail.com)
+# This is a plugin created by iouonegirl(@gmail.com)
 # Copyright (c) 2016 iouonegirl
 # https://github.com/dsverdlo/minqlx-plugins
 #
@@ -73,7 +73,7 @@ import re
 
 from minqlx.database import Redis
 
-VERSION = "v0.56.4.1"
+VERSION = "v0.56.4.2"
 
 
 # This code makes sure the required superclass is loaded automatically
@@ -1301,7 +1301,11 @@ class mybalance(iouonegirlPlugin):
                 self.plugin.msg("^7Sorry, {} your glicko ({}) is too {}, {}".format(self.player.name, self.elo, self.highlow, kickmsg))
             def try_mute(self):
                 @minqlx.next_frame
-                def execute(): self.player.mute()
+                def execute():
+                    try:
+                        self.player.mute()
+                    except:
+                        pass
                 time.sleep(4)
                 #self.player = self.plugin.player(self.player.id)
                 if not self.player: self.stop()
@@ -1309,7 +1313,10 @@ class mybalance(iouonegirlPlugin):
             def try_kick(self):
                 @minqlx.next_frame
                 def execute():
-                    self.player.kick("^1GOT KICKED!^7 Glicko ({}) was too {} for this server.".format(self.elo, self.highlow))
+                    try:
+                        self.player.kick("^1GOT KICKED!^7 Glicko ({}) was too {} for this server.".format(self.elo, self.highlow))
+                    except:
+                        pass
                 if self.plugin.get_cvar("qlx_elo_kick") == "0": return
                 time.sleep(16)
                 #self.player = self.plugin.player(self.player.id)
