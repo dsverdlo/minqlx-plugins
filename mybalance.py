@@ -73,7 +73,7 @@ import re
 
 from minqlx.database import Redis
 
-VERSION = "v0.56.4.2"
+VERSION = "v0.56.4.3"
 
 
 # This code makes sure the required superclass is loaded automatically
