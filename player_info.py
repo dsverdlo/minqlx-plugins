@@ -45,7 +45,7 @@ except:
         minqlx.CHAT_CHANNEL.reply("^1iouonegirl abstract plugin download failed^7: {}".format(e))
         raise
 
-VERSION = "v0.33"
+VERSION = "v0.34"
 
 PLAYER_KEY = "minqlx:players:{}"
 COMPLETED_KEY = PLAYER_KEY + ":games_completed"
@@ -200,7 +200,7 @@ class player_info(iouonegirlPlugin):
         last_status = 0
         while attempts < MAX_ATTEMPTS:
             attempts += 1
-            url = "http://qlstats.net:8080/{elo}/{}".format(sid, elo=self.get_cvar('qlx_balanceApi'))
+            url = "http://qlstats.net/{elo}/{}".format(sid, elo=self.get_cvar('qlx_balanceApi'))
             res = requests.get(url)
             last_status = res.status_code
             if res.status_code != requests.codes.ok:
@@ -317,4 +317,3 @@ class player_info(iouonegirlPlugin):
             n = player.name
             self.kick(player.id, "kicked because of deactivated account.")
             self.msg("{} has been kicked, but could not be banned. Contact iouonegirl".format(n))
-
