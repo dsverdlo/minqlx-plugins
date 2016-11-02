@@ -45,7 +45,7 @@ except:
         minqlx.CHAT_CHANNEL.reply("^1iouonegirl abstract plugin download failed^7: {}".format(e))
         raise
 
-VERSION = "v0.33"
+VERSION = "v0.34"
 
 PLAYER_KEY = "minqlx:players:{}"
 COMPLETED_KEY = PLAYER_KEY + ":games_completed"
