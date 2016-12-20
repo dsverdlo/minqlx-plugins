@@ -32,7 +32,7 @@ import time
 import re
 import fcntl
 
-VERSION = "v0.2.4"
+VERSION = "v0.2.5"
 
 # This code makes sure the required superclass is loaded automatically
 try:
@@ -354,7 +354,11 @@ class FLock:
 re_msg = re.compile(r"^:([^ ]+) PRIVMSG ([^ ]+) :(.*)$")
 re_user = re.compile(r"^(.+)!(.+)@(.+)$")
 
-IDENTFILE = os.path.join(os.environ["HOME"], ".oidentd.conf")
+try:
+    IDENTFILE = os.path.join(os.path.expanduser("~"), ".oidentd.conf")
+except:
+    IDENTFILE = None
+    
 IDENTFMT  = 'global {{ reply "{}" }}'
 LOCKFILE  = "/tmp/ident.lock"
 
