@@ -18,7 +18,7 @@ import minqlx
 import time
 import requests
 
-VERSION = "v0.10"
+VERSION = "v0.20"
 
 # These songs will be looped one by one. Don't forget to remove the #'s if you want to use songs
 SONGS = [
