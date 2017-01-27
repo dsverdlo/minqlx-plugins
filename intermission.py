@@ -18,7 +18,7 @@ import minqlx
 import time
 import requests
 
-VERSION = "v0.10"
+VERSION = "v0.20"
 
 # These songs will be looped one by one. Don't forget to remove the #'s if you want to use songs
 SONGS = [
@@ -46,8 +46,11 @@ class intermission(minqlx.Plugin):
             self.index = 0
 
         # Try to play sound file
-        try:
-            self.play_sound(SONGS[self.index])
+        try:            
+            for p in self.players():
+                if self.db.get_flag(p, "essentials:sounds_enabled", default=True):
+                    self.stop_music(p)
+                    self.play_sound(SONGS[self.index],p)
         except Exception as e:
             self.msg("^1Error: ^7{}".format(e))
 
