@@ -47,6 +47,7 @@ class intermission(minqlx.Plugin):
 
         # Try to play sound file
         try:
+            self.stop_music()
             self.play_sound(SONGS[self.index])
         except Exception as e:
             self.msg("^1Error: ^7{}".format(e))
