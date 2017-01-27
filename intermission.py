@@ -46,9 +46,11 @@ class intermission(minqlx.Plugin):
             self.index = 0
 
         # Try to play sound file
-        try:
-            self.stop_music()
-            self.play_sound(SONGS[self.index])
+        try:            
+            for p in self.players():
+                if self.db.get_flag(p, "essentials:sounds_enabled", default=True):
+                    self.stop_music(p)
+                    self.play_sound(SONGS[self.index],p)
         except Exception as e:
             self.msg("^1Error: ^7{}".format(e))
 
