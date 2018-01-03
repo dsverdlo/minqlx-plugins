@@ -6,7 +6,7 @@
 # except for the version command related code.
 #
 # Thanks to Bus Station, Minkyn, Melodeiro, BarelyMiSSeD,
-# TNT for their input on this plugin.
+# TNT and Shin0 for their input on this plugin.
 #
 # Its purpose is to balance the games on a server out.
 # Some features of this plugin include:
@@ -73,7 +73,7 @@ import re
 
 from minqlx.database import Redis
 
-VERSION = "v0.56.4.3"
+VERSION = "v0.56.4.4"
 
 
 # This code makes sure the required superclass is loaded automatically
