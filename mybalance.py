@@ -835,11 +835,11 @@ class mybalance(iouonegirlPlugin):
                 return
 
         if self.game.type_short == "tdm":
-            if self.game.fraglimit in [self.game.blue_score, self.game_red_score]:
+            if self.game.fraglimit in [self.game.blue_score, self.game.red_score]:
                 return
 
         if self.game.type_short == "ctf":
-            if self.game.capturelimit in [self.game.blue_score, self.game_red_score]:
+            if self.game.capturelimit in [self.game.blue_score, self.game.red_score]:
                 return
 
         # If the last person is prevented or ignored to spec, we need to exclude him to balance the rest.
