@@ -799,9 +799,6 @@ class mybalance(iouonegirlPlugin):
         @minqlx.next_frame
         def slay_player(p): p.health = 0 # assignment wasnt allowed in lambda
 
-        def is_even(n):
-            return n % 2 == 0
-
         # Calculate the difference between teams (optional excluded teams argument)
         def red_min_blue(t = False):
             if not t: t = self.teams()
@@ -855,7 +852,7 @@ class mybalance(iouonegirlPlugin):
                 #self.msg("^1Mybalance couldn't retrieve the last player. Please consult error logs.")
                 minqlx.console_command("echo Error: Trying to balance before round {} start. Red({}) - Blue({}) players".format(roundnumber, len(teams['red']), len(teams['blue'])))
                 return
-            if is_even(diff): # one team has an even amount of people more than the other
+            if self.is_even(diff): # one team has an even amount of people more than the other
                 to, fr = ['blue','red'] if diff > 0 else ['red', 'blue']
                 game_logic(lambda: last.put(to))
                 self.msg("^6Uneven teams action^7: Moved {} from {} to {}".format(last.name, fr, to))
@@ -905,9 +902,6 @@ class mybalance(iouonegirlPlugin):
         self.prevent = False
 
     def handle_round_count(self, round_number):
-        def is_even(n):
-            return n % 2 == 0
-
         def red_min_blue():
             t = self.teams()
             return len(t['red']) - len(t['blue'])
@@ -929,7 +923,7 @@ class mybalance(iouonegirlPlugin):
             if not last:
                 self.msg("^7No last person could be predicted in round countdown from teams:\nRed:{}\nBlue:{}".format(teams['red'], teams['blue']))
 
-            elif is_even(diff):
+            elif self.is_even(diff):
                 n = last.name if n == 1 else "{} players".format(n)
                 self.msg("^6Uneven teams detected!^7 At round start i'll move {} to {}".format(n, to))
             else:
@@ -1119,12 +1113,6 @@ class mybalance(iouonegirlPlugin):
         if not (player.steam_id in self.jointimes):
             self.jointimes[player.steam_id] = time.time()
         return self.jointimes[player.steam_id]
-
-    def is_even(self, number):
-        return number % 2 == 0
-
-    def is_odd(self, number):
-        return not self.is_even(number)
 
     def algo_get_last(self, excluded_teams = False):
         # Find the player to be acted upon. If there are more than 1 rounds
