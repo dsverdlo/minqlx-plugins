@@ -23,7 +23,7 @@ import random
 import threading
 import requests
 
-VERSION = "v0.13"
+VERSION = "v0.14"
 
 
 
@@ -428,8 +428,8 @@ class translate(iouonegirlPlugin):
             return minqlx.RET_USAGE
 
         query = " ".join(msg[1:])
-        url = 'https://mashape-community-urban-dictionary.p.mashape.com/define?term={}'.format(query)
-        headers =  { "X-Mashape-Key": "CAwrPAMPB6msh3K3YsRflDE0hmswp14vd4tjsnwbD5rMUVQWvo" }
+        url = 'https://mashape-community-urban-dictionary.p.rapidapi.com/define?term={}'.format(query)
+        headers =  { "X-RapidAPI-Key": "Uj9TzyJ4uumshsTjD5yV3ZxE2JfWp1yib2SjsnJbjRHQJjSjs5" }
 
         self.help_fetch(player, query, url, headers, None, self.help_callback_urban)
 
@@ -437,8 +437,8 @@ class translate(iouonegirlPlugin):
         if len(msg)< 2:
             return minqlx.RET_USAGE
         query = "+".join(msg[1:])
-        url = 'https://montanaflynn-l33t-sp34k.p.mashape.com/encode?text={}'.format(query)
-        headers =  { "X-Mashape-Key": "CAwrPAMPB6msh3K3YsRflDE0hmswp14vd4tjsnwbD5rMUVQWvo" }
+        url = 'https://montanaflynn-l33t-sp34k.p.rapidapi.com/encode?text={}'.format(query)
+        headers =  { "X-RapidAPI-Key": "Uj9TzyJ4uumshsTjD5yV3ZxE2JfWp1yib2SjsnJbjRHQJjSjs5" }
         self.help_fetch(player, query, url, headers, None, self.help_callback_leet)
         return minqlx.RET_STOP_ALL
 
