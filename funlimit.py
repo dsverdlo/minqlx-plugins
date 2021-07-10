@@ -13,6 +13,9 @@
 # Uses:
 # set qlx_funlimit_messages "1"
 #     ^ (Set to "1" to see messages, "0" to disable)
+#
+# set qlx_funlimit_fun_pluginname "fun"
+#     ^ (Name of the fun plugin that you use, like: fun/myFun)
 
 import minqlx
 import threading
@@ -20,7 +23,7 @@ import time
 import os
 import requests
 
-VERSION = "v0.1.2"
+VERSION = "v0.1.3"
 
 # This code makes sure the required superclass is loaded automatically
 try:
@@ -43,6 +46,7 @@ class funlimit(iouonegirlPlugin):
 
         # CVARS
         self.set_cvar_once("qlx_funlimit_messages", "1")
+        self.set_cvar_once("qlx_funlimit_fun_pluginname", "fun") # some servers use myFun
 
         # HOOKS
         self.add_hook("game_countdown", self.handle_game_start)
@@ -58,6 +62,7 @@ class funlimit(iouonegirlPlugin):
 
         # Instance variables
         self.store_hook = None
+        self.funPluginName = self.get_cvar("qlx_funlimit_fun_pluginname")
 
         if self.game and self.game.state == "in_progress":
             self.disable_sounds()
@@ -93,35 +98,35 @@ class funlimit(iouonegirlPlugin):
 
     def cmd_funsounds(self, player, msg, channel):
         enabled = "^1not loaded"
-        if 'fun' in self.plugins:
+        if self.funPluginName in self.plugins:
             enabled = "^1disabled"
-            fun = self.plugins['fun']
+            fun = self.plugins[self.funPluginName]
             for hook in fun.hooks:
                 if hook[0] == "chat":
                     enabled = "^2enabled"
 
-        channel.reply("Fun sounds are currently {}.".format(enabled))
+        channel.reply("{} sounds are currently {}.".format(self.funPluginName, enabled))
 
 
     def disable_sounds(self):
-        if not 'fun' in self.plugins: return
-        fun = self.plugins['fun']
+        if not self.funPluginName in self.plugins: return
+        fun = self.plugins[self.funPluginName]
         for hook in fun.hooks:
             if hook[0] == "chat":
                 if not self.store_hook:
                     self.store_hook = hook
                 fun.remove_hook(hook[0], hook[1], hook[2])
-                self.delay_msg("^7Fun sounds temporarily ^1disabled^7.")
+                self.delay_msg("^7{} sounds temporarily ^1disabled^7.".format(self.funPluginName))
                 return
 
     def allow_sounds(self):
         if not self.store_hook: return
-        if not 'fun' in self.plugins: return
-        fun = self.plugins['fun']
+        if not self.funPluginName in self.plugins: return
+        fun = self.plugins[self.funPluginName]
         for hook in fun.hooks:
             if hook[0] == "chat": return
         fun.add_hook(self.store_hook[0], self.store_hook[1], self.store_hook[2])
-        self.delay_msg("^7Fun sounds ^2enabled^7.")
+        self.delay_msg("^7{} sounds ^2enabled^7.".format(self.funPluginName))
 
     @minqlx.delay(0.5)
     def delay_msg(self, m):
