@@ -572,7 +572,9 @@ class mybalance(iouonegirlPlugin):
 
     @minqlx.thread
     def check_warmup(self, warmup, mapname):
-        while all([self.game.state == "warmup", self.game.map == mapname, self.warmup_reminders, self.__class__.__name__ in minqlx.Plugin._loaded_plugins, int(self.get_cvar('qlx_mybalance_warmup_seconds')) > -1, len(self.teams()['red']+self.teams()['blue']) > 1]):
+        while self.is_game_in_warmup() and self.game_with_map_loaded(mapname) and self.warmup_reminders and \
+            self.is_plugin_still_loaded() and self.is_warmup_seconds_enabled() and \
+            self.is_there_more_than_one_player_joined():
             diff = time.time() - warmup # difference in seconds
             if diff >= int(self.get_cvar('qlx_mybalance_warmup_seconds')):
                 pgs = minqlx.Plugin._loaded_plugins
@@ -592,6 +594,28 @@ class mybalance(iouonegirlPlugin):
                 continue
             time.sleep(1)
 
+    def is_game_in_warmup(self) -> bool:
+        if not self.game:
+            return False
+        
+        return self.game.state == "warmup"
+    
+    def game_with_map_loaded(self, mapname) -> bool:
+        if not self.game:
+            return False
+            
+        return self.game.map == mapname
+    
+    def is_plugin_still_loaded(self) -> bool:
+        return self.__class__.__name__ in minqlx.Plugin._loaded_plugins
+        
+    def is_warmup_seconds_enabled(self) -> bool:
+        return self.get_cvar('qlx_mybalance_warmup_seconds', int) > -1
+        
+    def is_there_more_than_one_player_joined(self) -> bool:
+        teams = self.teams()
+        return len(teams["red"] + teams["blue"]) > 1
+        
     @minqlx.delay(5)
     def handle_game_countdown(self):
 
