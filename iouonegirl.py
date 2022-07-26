@@ -25,6 +25,8 @@ VERSION = "v0.32 IMPORTANT"
 
 class iouonegirlPlugin(minqlx.Plugin):
     def __init__(self, name, vers):
+        super().__init__()
+        
         self._name = name
         self._vers = vers
         self._loc = "https://raw.githubusercontent.com/dsverdlo/minqlx-plugins/master/"
