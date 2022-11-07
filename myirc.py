@@ -32,7 +32,7 @@ import time
 import re
 import fcntl
 
-VERSION = "v0.2.5"
+VERSION = "v0.2.6"
 
 # This code makes sure the required superclass is loaded automatically
 try:
@@ -244,6 +244,11 @@ class myirc(iouonegirlPlugin):
         teams = self.teams()
         players = teams["free"] + teams["red"] + teams["blue"] + teams["spectator"]
         game = self.game
+        
+        # If game is None, there is nothing to report
+        if game is None:
+            return
+        
         # Make a list of players.
         plist = []
         for t in teams:
