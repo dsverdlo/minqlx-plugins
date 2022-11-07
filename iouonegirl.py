@@ -21,7 +21,7 @@ import urllib
 import requests
 import re
 
-VERSION = "v0.32 IMPORTANT"
+VERSION = "v0.33 IMPORTANT"
 
 class iouonegirlPlugin(minqlx.Plugin):
     def __init__(self, name, vers):
