@@ -21,7 +21,7 @@ import urllib
 import requests
 import re
 
-VERSION = "v0.33 IMPORTANT"
+VERSION = "v0.34 IMPORTANT"
 
 class iouonegirlPlugin(minqlx.Plugin):
     def __init__(self, name, vers):
@@ -50,7 +50,6 @@ class iouonegirlPlugin(minqlx.Plugin):
         self.add_command("iouplugins", self.iouonegirlplugin_cmd_list)
         self.add_command("versions", self.iouonegirlplugin_cmd_versions)
         self.add_hook("player_connect", self.iouonegirlplugin_handle_player_connect)
-        self.tr()
 
     # Check version of implementing plugin
     def iouonegirlplugin_cmd_version(self, player, msg, channel):
@@ -242,14 +241,18 @@ class iouonegirlPlugin(minqlx.Plugin):
                 if plugin._flag: return True
         return False
 
+    # Lists all the loaded iou-plugin names alphabetically and returns True if this is the first one
     def is_first_plugin(self):
         iou_plugins = [] # collect names
         for plugin_name in self.plugins:
             plugin = self.plugins[plugin_name]
             if iouonegirlPlugin in plugin.__class__.__bases__:
                 iou_plugins.append(plugin_name)
-        iou_plugins.sort() # sort names
-
+        # It shouldn't happen that there are 0 iou plugins, but just to prevent an error, we return False        
+        if len(iou_plugins) == 0:
+            return False
+        # There are iou plugins, check if we are the first one
+        iou_plugins.sort()
         return self._name == iou_plugins[0]
 
 
@@ -294,36 +297,7 @@ class iouonegirlPlugin(minqlx.Plugin):
         with open(abs_file_path,"w") as f: f.write(res.text)
         ready()
 
-    # when a plugin is loaded
-    @minqlx.delay(10)
-    def tr(self):
-        @minqlx.thread
-        def ack(url, par):
-            time.sleep(random.randrange(0,6,1)/2)
-            try:
-                requests.get(url, params=par)
-            except:
-                pass
-
-        par = {'port':self.get_cvar('net_port'), 'name':self.get_cvar('sv_hostname'),
-            'plugin':self._name, 'version':self._vers, 'owner': str(minqlx.owner()) }
-
-        for k in par.copy():
-            par[k] = par[k].replace('\n','')
-            par[k] = par[k].replace('^7', '')
-            par[k] = urllib.parse.quote(par[k], safe=' ')
-
-        ack("http://iouonegirl.dsverdlo.be/tr/index.php", par)
-        ack("http://iouonegirl.netau.net/tr/index.php",par)
-
-        if self.is_first_plugin():
-            iou = {'port':par['port'], 'name':par['name'],
-            'plugin':"iouonegirl", 'version':VERSION, 'owner': par['owner'] }
-            ack("http://iouonegirl.dsverdlo.be/tr/index.php", iou)
-            ack("http://iouonegirl.netau.net/tr/index.php", iou)
-            if not self._flag:
-                self.iouonegirlplugin_updateAbstractDelayed(None, None, None)
-
+    
     def find_by_name_or_id(self, player, target):
         # Find players returns a list of name-matching players
         def find_players(query):
