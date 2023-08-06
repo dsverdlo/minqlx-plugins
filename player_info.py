@@ -10,12 +10,14 @@
 # to view their information
 #
 # Players deactivated on qlstats can be banned or just
-# trigger a server warning
+# trigger a server warning.
+# Can also use a different elo rating site by changing
+# cvar qlx_balanceUrl
 #
 # Uses:
 # - set qlx_pinfo_display_auto "0"
 # - set qlx_pinfo_show_deactivated "1"
-#          ^ (If this is 1 then a warning will be shown of players who are deactivated on qlstats)
+#          ^ (If this is 1 then a warning will be shown of players who are deactivated on qlstats/other)
 # - set qlx_pinfo_ban_deactivated "0"
 # - set qlx_pinfo_ban_duration_weeks "1"
 #       ^ If ban_deactivated is "1", then this var will specify for how many weeks the ban will last
@@ -45,7 +47,7 @@ except:
         minqlx.CHAT_CHANNEL.reply("^1iouonegirl abstract plugin download failed^7: {}".format(e))
         raise
 
-VERSION = "v0.34"
+VERSION = "v0.35"
 
 PLAYER_KEY = "minqlx:players:{}"
 COMPLETED_KEY = PLAYER_KEY + ":games_completed"
@@ -68,6 +70,7 @@ class player_info(iouonegirlPlugin):
 
         # set cvars once. EDIT THESE IN SERVER.CFG
         self.set_cvar_once("qlx_balanceApi", "elo")
+        self.set_cvar_once("qlx_balanceUrl", "qlstats.net")
         self.set_cvar_once("qlx_pinfo_display_auto", "0")
         self.set_cvar_once("qlx_pinfo_show_deactivated", "1")
         self.set_cvar_once("qlx_pinfo_ban_deactivated", "0")
@@ -78,6 +81,13 @@ class player_info(iouonegirlPlugin):
         self.add_command(("allelo", "allelos", "aelo", "eloall"), self.cmd_all_elos, usage="[<id>|<name>]")
 
         self.add_hook("player_connect", self.handle_player_connect, priority=minqlx.PRI_LOWEST)
+        
+        self.cache_cvars()
+
+    
+    def cache_cvars(self):
+        self.balanceApiUrl = self.get_cvar("qlx_balanceUrl")
+        self.api_url = "http://{}/{}/".format(self.balanceApiUrl, self.get_cvar("qlx_balanceApi"))
 
 
     def handle_player_connect(self, player):
@@ -200,7 +210,7 @@ class player_info(iouonegirlPlugin):
         last_status = 0
         while attempts < MAX_ATTEMPTS:
             attempts += 1
-            url = "http://qlstats.net/{elo}/{}".format(sid, elo=self.get_cvar('qlx_balanceApi'))
+            url = self.api_url + sid
             res = requests.get(url)
             last_status = res.status_code
             if res.status_code != requests.codes.ok:
@@ -221,7 +231,7 @@ class player_info(iouonegirlPlugin):
                 elif self.get_cvar("qlx_pinfo_show_deactivated", int):
                     @minqlx.next_frame
                     def warn():
-                        self.msg("^3SERVER WARNING^7! {}^7's account has been ^1DEACTIVATED^7 on qlstats.".format(player.name))
+                        self.msg("^3SERVER WARNING^7! {}^7's account has been ^1DEACTIVATED^7 on {}.".format(player.name, self.balanceApiUrl))
                     warn()
 
             # if we came here from a connect trigger, for a server that doesnt want auto info, return
