@@ -47,7 +47,7 @@ except:
         minqlx.CHAT_CHANNEL.reply("^1iouonegirl abstract plugin download failed^7: {}".format(e))
         raise
 
-VERSION = "v0.35"
+VERSION = "v0.36"
 
 PLAYER_KEY = "minqlx:players:{}"
 COMPLETED_KEY = PLAYER_KEY + ":games_completed"
@@ -210,7 +210,7 @@ class player_info(iouonegirlPlugin):
         last_status = 0
         while attempts < MAX_ATTEMPTS:
             attempts += 1
-            url = self.api_url + sid
+            url = f"{self.api_url}{sid}"
             res = requests.get(url)
             last_status = res.status_code
             if res.status_code != requests.codes.ok:
