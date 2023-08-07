@@ -195,8 +195,12 @@ class anti_rape(iouonegirlPlugin):
             return
 
         if self.game and self.game.state == "in_progress":
+            try:
+                hc = player.handicap
+            except KeyError:
+                hc = None
             # Remove a potential previous handicap
-            if ('handicap' in player.cvars) and (int(player.cvars['handicap']) < 100):
+            if hc is not None and int(hc) < 100:
                 self.set_silent_handicap(player, 100)
                 del self.handicaps[player.steam_id]
 
@@ -217,7 +221,7 @@ class anti_rape(iouonegirlPlugin):
 
         # At this stage, the request was not started by the server, but by a player.
         # Restore his previous handicap and tell him this is not allowed on the server
-        prev_hc = int(player.cvars['handicap'])
+        prev_hc = int(player.handicap)
         new_hc = int( d['handicap'] )
         player.tell("^3Handicap request denied. This server will automatically set appropriate handicap levels.")
         d['handicap'] = prev_hc
@@ -285,7 +289,7 @@ class anti_rape(iouonegirlPlugin):
                 score = _p.stats.score
                 frags = _p.stats.kills
                 curr_dmg = _p.stats.damage_dealt
-                hc = int(_p.cvars.get('handicap', 100))
+                hc = int(_p.handicap) if _p.handicap else 100
                 prev_dmg = self.scores_snapshot.get(sid, [None, curr_dmg if special_case else 0])[1]
                 diff = curr_dmg - prev_dmg
                 actual_diff = diff / hc
@@ -491,7 +495,7 @@ class anti_rape(iouonegirlPlugin):
                 handicapable_players.append(p)
 
         if handicapable_players:
-            message = "^7" + ",".join(list(map(lambda _p: "{}-^3{}％^7".format(_p.name, _p.cvars['handicap']), handicapable_players)))
+            message = "^7" + ",".join(list(map(lambda _p: "{}-^3{}％^7".format(_p.name, _p.handicap), handicapable_players)))
 
         if len(msg) < 2:
             return channel.reply(message)
